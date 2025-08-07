@@ -1,0 +1,13 @@
+real = @{ '0'..'9' ~ ('0'..'9')* ~ "." ~ ('0'..'9')* }
+id = @{ 'a'..'z' ~ ('A'..'Z' | 'a'..'z' | '0'..'9' | "_")* }
+nninteger = @{ (('1'..'9') ~ ('0'..'9')*) | "0" }
+
+exp = { WHITESPACE* ~ term ~ (plus ~ term)* }
+term = { factor ~ (mul ~ factor)* }
+factor = { power ~ (("^" ~ power))* }
+plus =  { "+" | "-" }
+mul = { "*" | "/" }
+power = { real | nninteger | "(" ~ exp ~ ")" | unary_op ~ "(" ~ exp ~ ")" | "-" ~ power | id }
+unary_op = { "sin" | "cos" | "tan" | "exp" | "ln" | "sqrt" }
+
+WHITESPACE = _{ " " | "\t" | "\n" | "\r" }
