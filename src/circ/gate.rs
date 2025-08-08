@@ -53,7 +53,7 @@ thread_local! {
 }
 
 #[gen_stub_pyclass]
-#[pyo3::pyclass]
+#[pyo3::pyclass(eq, frozen, hash, str)]
 #[derive(
     derive_more::Debug, Clone, Copy, derive_more::Display, PartialEq, Eq, Hash, PartialOrd, Ord,
 )]
@@ -160,20 +160,5 @@ impl Gate {
     #[getter(nqargs)]
     pub fn nqargs_py(&self) -> usize {
         self.nqargs()
-    }
-
-    pub fn __eq__(&self, other: &Self) -> bool {
-        self == other
-    }
-    pub fn __hash__(&self) -> usize {
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        std::hash::Hash::hash(&self, &mut hasher);
-        hasher.finish() as usize
-    }
-    pub fn __repr__(&self) -> String {
-        format!("{:?}", self)
-    }
-    pub fn __str__(&self) -> String {
-        format!("{}", self)
     }
 }

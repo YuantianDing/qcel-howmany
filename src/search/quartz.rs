@@ -4,15 +4,15 @@ use itertools::Itertools;
 use serde_json::{json, Value};
 use smallvec::smallvec;
 
-use crate::{circ::{gates::SWAP}, groups::permutation::Permut32, search::{CircuitECCs, Instr}, utils::JoinOptionIter};
+use crate::{circ::{gates::SWAP}, groups::permutation::Permut32, search::{ECCs, Instr}, utils::JoinOptionIter};
 
-impl CircuitECCs {
+impl ECCs {
     pub fn as_quartz(&self) -> serde_json::Value {
         let mut eccs = serde_json::Map::<String, Value>::new();
 
-        for (k, ecc) in self.inner.iter() {
-            if ecc.circuits.len() <= 1 { continue; }
-            for (i, ecc) in generate_ecc_with_swap(&ecc.simplify()).enumerate() {
+        for (k, ecc) in self.iter().enumerate() {
+            if ecc.len() <= 1 { continue; }
+            for (i, ecc) in generate_ecc_with_swap(&ecc).enumerate() {
                 let eccname = format!("{:x}_{i}", k);
                 // println!("ECC {eccname} {{");
                 let ecc = ecc.iter().map(|list| {

@@ -59,5 +59,7 @@ def to_qiskit(instrs: list[inner.Instruction]):
 
     return circuit
 
-CircitECCs = inner.CircuitECCs
+ECCs = inner.ECCs
+ECC = inner.ECC
+Instr = inner.Instr
 StateVec = inner.StateVec

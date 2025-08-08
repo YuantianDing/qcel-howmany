@@ -14,7 +14,7 @@ const SORTING_NETWORKS : [&[(u8, u8)]; 9] = [
 ];
 
 #[derive(derive_more::Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[debug("Permut32{self}")]
+#[debug("{self}")]
 pub struct Permut32 {
     pub raw: u32
 }

@@ -10,7 +10,7 @@ use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 pub mod param;
 
 #[gen_stub_pyclass]
-#[pyo3::pyclass]
+#[pyo3::pyclass(eq, str)]
 #[derive(Debug, Clone, Display, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display("{regid}[{index}]")]
 pub struct Argument {
@@ -28,9 +28,6 @@ impl Argument {
         Self { regid, index }
     }
 
-    pub fn __eq__(&self, other: &Self) -> bool {
-        self == other
-    }
     pub fn __hash__(&self) -> usize {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         std::hash::Hash::hash(&self, &mut hasher);
@@ -39,12 +36,9 @@ impl Argument {
     pub fn __repr__(&self) -> String {
         format!("{:?}", self)
     }
-    pub fn __str__(&self) -> String {
-        format!("{}", self)
-    }
 }
 #[gen_stub_pyclass]
-#[pyo3::pyclass]
+#[pyo3::pyclass(eq, str)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Instruction {
     #[pyo3(get, set)]
@@ -93,9 +87,6 @@ impl Instruction {
                 .collect(),
         }
     }
-    pub fn __eq__(&self, other: &Self) -> bool {
-        self == other
-    }
     pub fn __hash__(&self) -> usize {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         std::hash::Hash::hash(&self, &mut hasher);
@@ -103,9 +94,6 @@ impl Instruction {
     }
     pub fn __repr__(&self) -> String {
         format!("{:?}", self)
-    }
-    pub fn __str__(&self) -> String {
-        format!("{}", self)
     }
 }
 

@@ -11,10 +11,10 @@ gates = [qlib.HGate(), qlib.TGate(), qlib.TdgGate(), qlib.XGate(), qlib.CXGate()
 gates = [quclif.Gate(g) for g in gates]
 
 
-ecc_set = quclif.CircitECCs.generate(
+ecc_set = quclif.ECCs.generate(
     nqubits=5,
     gates=gates,
-    max_size=8,
+    max_size=6,
 )
 
 ecc_set.dump_quartz("eccset.json")
