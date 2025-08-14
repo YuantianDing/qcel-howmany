@@ -153,4 +153,3 @@ impl<'a, T: Display, Iter: Iterator<Item=T> + Clone, Sep: Display, Start: Displa
         }
     }
 }
-

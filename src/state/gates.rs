@@ -75,7 +75,7 @@ fn perform_swap_gate(state: &mut StateVec, qubits: &[u8]) {
     }
 }
 
-fn perform_cnot_gate(state: &mut StateVec, qubits: &[u8]) {
+fn perform_cx_gate(state: &mut StateVec, qubits: &[u8]) {
     for indices in qubit_matrix_indices2(state.nqubits(), qubits.try_into().unwrap()) {
         let mut vec = state.access(indices);
         vec.swap(2, 3);
@@ -94,7 +94,7 @@ lazy_static::lazy_static!(
         m.insert(*gates::S, perform_s_gate);
         m.insert(*gates::SDG, perform_sdg_gate);
         m.insert(*gates::SWAP, perform_swap_gate);
-        m.insert(*gates::CNOT, perform_cnot_gate);
+        m.insert(*gates::CX, perform_cx_gate);
         m
     };
 );

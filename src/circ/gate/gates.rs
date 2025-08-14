@@ -82,9 +82,9 @@ lazy_static::lazy_static!(
         )
     };
 
-    pub static ref CNOT: Gate = {
+    pub static ref CX: Gate = {
         Gate::new(
-            "cnot".to_string(),
+            "cx".to_string(),
             vec![],
             DMatrix::from_row_slice(4, 4, &[
                 Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),

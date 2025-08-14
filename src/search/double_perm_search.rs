@@ -9,7 +9,7 @@ use smallvec::SmallVec;
 
 
 use crate::{
-    circ::{gates::SWAP, Gate, Instruction, InstructionSliceExt}, groups::permutation::Permut32, search::Instr, state::StateVec, utils::{AliasList, JoinOptionIter}
+    circ::{gates::SWAP, Gate, Instruction, InstructionSliceExt}, groups::permutation::Permut32, circ::Instr, state::StateVec, utils::{AliasList, JoinOptionIter}
 };
 use linear_map::set::LinearSet;
 
@@ -59,12 +59,14 @@ impl CircuitECC {
 
 
 
-#[gen_stub_pyclass]
-#[pyo3::pyclass]
-pub struct CircuitECCs {
-    inner: HashMap<u64, CircuitECC, BuildNoHashHasher<u64>>,
+pub struct Evaluator {
     initial_state: StateVec,
     backtrack_state: StateVec,
+}
+
+pub struct CircuitECCs {
+    inner: HashMap<u64, CircuitECC, BuildNoHashHasher<u64>>,
+    nqubits: usize,
 }
 
 
@@ -94,40 +96,50 @@ fn circuit_get_surface_gates<'a>(circ: impl Iterator<Item = &'a Instr>) -> impl 
 }
 
 impl CircuitECCs {
-    pub fn search(nqubits: usize, instrs: Vec<Instr>, max_size: usize, rng: &mut ThreadRng) -> CircuitECCs {
-        let mut backtrack_state = StateVec::from_random(rng, nqubits as u32);
+    fn search(nqubits: usize, instrs: Vec<Instr>, max_size: usize, rng: &mut ThreadRng) -> CircuitECCs {
+        assert!(nqubits < 8, "Only up to 8 qubits are supported for ECC generation");
+        let initial_state = StateVec::from_random_symmetric(rng, nqubits as u32);
 
+        let mut backtrack_state = StateVec::from_random(rng, nqubits as u32);
         backtrack_state.apply_permutation(backtrack_state.get_permutation().inv());
+
         let mut map = CircuitECCs {
             inner: Default::default(),
-            initial_state: StateVec::from_random_symmetric(rng, nqubits as u32),
-            backtrack_state,
+            nqubits,
         };
+
         let mut queue: VecDeque<AliasList<Instr>> = VecDeque::new();
-        let mut instr_vec = Vec::new();
         queue.push_back(AliasList::nil());
+
+        let mut instr_vec = Vec::new();
         let mut counter = 0;
         while let Some(circ) = queue.pop_front() {
             instr_vec.clear();
             instr_vec.extend(circ.iter().cloned());
             instr_vec.reverse();
+            let mask = instr_vec.iter().fold(0u8, |a, i| a | i.arg_mask());
 
-            if counter % 200 == 0 {
+            if counter % 400 == 0 {
                 println!("#{counter} Exploring {} ({} queued)", instr_vec.iter().join_option(" ", "", ""), queue.len());
             }
             
             for instr in instrs.iter() {
+                // if instr.pass_mask(mask).is_none() { c1 += 1; continue; }
+
                 instr_vec.push(instr.clone());
-                let mut state = map.initial_state.clone();
+                let mut state = initial_state.clone();
                 
                 for Instr(gate, idx) in instr_vec.iter() {
                     state.apply(idx, *gate);
+                    assert!(state.check());
                 }
+                assert!(state.check());
                 state.normalize_arg();
+                assert!(state.check(), "{state}");
                 let back_perm_inv = state.get_permutation();
                 let back_perm = back_perm_inv.inv();
-                state.apply_permutation(back_perm);
-                let mut backstate = map.backtrack_state.clone();
+                
+                let mut backstate = backtrack_state.clone();
                 backstate.apply_permutation(back_perm_inv);
                 for Instr(gate, idx) in instr_vec.iter().rev() {
                     backstate.apply(idx, gate.adjoint());
@@ -146,7 +158,7 @@ impl CircuitECCs {
                         Entry::Vacant(v) => {
                             let new_point = circ.cons(instr.clone());
                             if instr_vec.len() < max_size { queue.push_back(new_point.clone()); }
-
+                            // println!("\t{instr}: {front_perm}, {back_perm} new value");
                             v.insert(CircuitECC {
                                 front_gates: front_gates_iter.collect(),
                                 back_gates: back_gates_iter.collect(),
@@ -157,9 +169,12 @@ impl CircuitECCs {
                             if front_gates_iter.all(|instr| o.get_mut().front_gates.insert(instr)) &&
                                 back_gates_iter.all(|instr| o.get_mut().back_gates.insert(instr)) {
                                 
+                                // println!("\t{instr}: {front_perm}, {back_perm} equal -> {}", o.get().circuits[0].circ);
                                 let new_point = circ.cons(instr.clone());
                                 let triple = CircTriple { front_perm, circ: new_point, back_perm};
                                 o.get_mut().circuits.push(triple);
+                            } else {
+                                // println!("\t{instr}: {front_perm}, {back_perm} skip -> {}", o.get().circuits[0].circ);
                             }
                         }
                     }
@@ -174,7 +189,7 @@ impl CircuitECCs {
     pub fn simplify(self) -> super::ECCs {
         super::ECCs {
             eccs: self.inner.values().map(|a| a.simplify()).collect(),
-            nqubits: self.initial_state.nqubits(),
+            nqubits: self.nqubits,
         }
     }
     pub fn generate(
@@ -196,6 +211,8 @@ impl CircuitECCs {
                 _ => panic!("Only 1 and 2 qubit instructions are supported"),
             }
         }
+
+        instructions.sort_by_key(|a| a.largest_qubit());
         
         CircuitECCs::search(nqubits, instructions, max_size, rng)
     }

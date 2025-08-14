@@ -5,5 +5,6 @@ fn main() -> Result<()> {
     let stub = quclif::stub_info()?;
     println!("{}", stub.python_root.display());
     stub.generate()?;
+    std::fs::rename("python/quclif.pyi", "python/quclif/quclif.pyi")?;
     Ok(())
 }

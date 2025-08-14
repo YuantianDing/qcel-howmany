@@ -1,15 +1,17 @@
 use nalgebra::{ArrayStorage, ComplexField, DMatrix, DVector, Matrix2, Matrix4, Vector2, Vector4, VectorN};
 use num_complex::Complex64;
+use pyo3::Bound;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use rand::{rngs::ThreadRng, Rng};
+use smallvec::SmallVec;
 use std::{
-    array, cell::{RefCell, UnsafeCell}, cmp::Ordering, hash::{Hash, Hasher}
+    array, cell::{RefCell, UnsafeCell}, cmp::Ordering, collections::BTreeSet, hash::{Hash, Hasher}
 };
 
-use crate::{circ::Gate, defs::{f64_percision_repr, F64_PERCISION_EPSILON}, groups::permutation::Permut32};
+use crate::{circ::{Gate, Instr}, defs::{cmplx64_to_fixpoint, f64_percision_repr, F64_PERCISION_EPSILON}, groups::permutation::Permut32};
 
 #[gen_stub_pyclass]
-#[pyo3::pyclass]
+#[pyo3::pyclass(eq, str)]
 #[derive(Debug, Clone)]
 pub struct StateVec {
     pub re: Box<[f64]>,
@@ -24,6 +26,23 @@ impl Hash for StateVec {
         for &val in self.im.iter() {
             f64_percision_repr(val).hash(state);
         }
+    }
+}
+
+impl std::fmt::Display for StateVec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[")?;
+        for (i, a) in self.re.iter().zip(self.im.iter()).enumerate() {
+            if i > 0 { write!(f, ", ")?; }
+            if a.1.abs() < F64_PERCISION_EPSILON {
+                write!(f, "{:.4}", a.0)?;
+            } else if a.0.abs() < F64_PERCISION_EPSILON {
+                write!(f, "{:.4}j", a.1)?;
+            } else {
+                write!(f, "{:.4}{:+.4}j", a.0, a.1)?;
+            }
+        }
+        write!(f, "]")
     }
 }
 
@@ -87,7 +106,47 @@ impl StateVec {
             if value.modulus() > F64_PERCISION_EPSILON {
                 return if value.re > 0.0 { Ordering::Greater } else { Ordering::Less };
             }
-            Ordering::Equal
+
+            let mut aset = SmallVec::<[(i64,i64); 8]>::new();
+            let mut bset = SmallVec::<[(i64,i64); 8]>::new();
+            for i in 0u8..(self.nqubits() as u8) {
+                if i != a {
+                    let v = cmplx64_to_fixpoint(self.at((1 << a) | (1 << i)));
+                    aset.push((v.re, v.im));
+                }
+                if i != b {
+                    let v = cmplx64_to_fixpoint(self.at((1 << b) | (1 << i)));
+                    bset.push((v.re, v.im));
+                }
+            }
+            aset.sort();
+            bset.sort();
+
+            let result = aset.cmp(&bset);
+            if result.is_ne() {
+                return result;
+            }
+
+            let mut aset = SmallVec::<[(i64,i64); 8]>::new();
+            let mut bset = SmallVec::<[(i64,i64); 8]>::new();
+            for i in 0u8..(self.nqubits() as u8) {
+                if i != a {
+                    let v = cmplx64_to_fixpoint(self.at(mask & !(1 << a) & !(1 << i)));
+                    aset.push((v.re, v.im));
+                }
+                if i != b {
+                    let v = cmplx64_to_fixpoint(self.at(mask & !(1 << b) & !(1 << i)));
+                    bset.push((v.re, v.im));
+                }
+            }
+            aset.sort();
+            bset.sort();
+            let result = aset.cmp(&bset);
+            if result.is_ne() {
+                return result;
+            }
+
+            return Ordering::Equal;
         })
     }
     pub fn apply_permutation(&mut self, permut: Permut32) {
@@ -124,7 +183,6 @@ pub fn reserve_state_vec_cache(size: usize) {
 #[gen_stub_pymethods]
 #[pyo3::pymethods]
 impl StateVec {
-    #[cfg(feature = "python-api")]
     #[new]
     pub fn new_py(re: Vec<f64>, im: Vec<f64>) -> Self {
         Self::new(re, im)
@@ -185,6 +243,7 @@ impl StateVec {
         if let Some(first_index) = first_non_zero_index {
             let mut unit = num_complex::c64(self.re[first_index], self.im[first_index]);
             unit = unit.norm() / (unit * norm_sq.sqrt());
+            assert!(unit.is_finite() && unit.modulus() >= F64_PERCISION_EPSILON, "Normalization unit is effectively zero.");
             for i in 0..self.len() {
                 let r = num_complex::c64(self.re[i], self.im[i]) * unit;
                 self.re[i] = r.re;
@@ -196,6 +255,12 @@ impl StateVec {
     }
     pub fn normalize_arg(&mut self) {
         let mut unit = num_complex::c64(self.re[0], self.im[0]);
+        if unit.modulus() < F64_PERCISION_EPSILON {
+            unit = num_complex::c64(*self.re.last().unwrap(), *self.im.last().unwrap());
+            if unit.modulus() < F64_PERCISION_EPSILON {
+                self.normalize(); return;
+            }
+        }
         unit = unit.norm() / unit;
         for i in 0..self.len() {
             let r = num_complex::c64(self.re[i], self.im[i]) * unit;
@@ -211,6 +276,27 @@ impl StateVec {
 
     pub fn __setitem__(&mut self, index: usize, value: Complex64) {
         self.set(index, value);
+    }
+
+    pub fn __imul__(slf: &Bound<'_, Self>, other: Instr) {
+        let mut slf = slf.borrow_mut();
+        slf.apply(&other.1, other.0);
+    }
+    pub fn clone(&self) -> Self {
+        Self {
+            re: self.re.clone(),
+            im: self.im.clone(),
+        }
+    }
+    pub fn check(&self) -> bool {
+        let mut norm_sq = 0.0;
+        for i in 0..self.len() {
+            if !self.re[i].is_finite() || !self.im[i].is_finite() {
+                return false;
+            }
+            norm_sq += self.re[i] * self.re[i] + self.im[i] * self.im[i];
+        }
+        (norm_sq - 1.0).abs() < F64_PERCISION_EPSILON
     }
 }
 type Matrix8 = nalgebra::SMatrix<Complex64, 8, 8>;
@@ -339,6 +425,7 @@ impl StateVec {
         state_vec
     }
 }
+
 
 pub mod indices;
 mod gates;

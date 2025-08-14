@@ -2,44 +2,12 @@ use derive_more::{Debug, Deref, DerefMut, Display, From, Index, Into};
 use itertools::Itertools;
 use smallvec::SmallVec;
 
-use crate::{circ::{gates::SWAP, Gate}, groups::permutation::Permut32, search::double_perm_search::CircuitECCs, state::StateVec, utils::JoinOptionIter};
+use crate::{circ::{gates::SWAP, Gate, Instr}, groups::permutation::Permut32, search::double_perm_search::CircuitECCs, state::StateVec, utils::JoinOptionIter};
 
 
 
 mod quartz;
 pub mod double_perm_search;
-
-
-#[pyo3_stub_gen::derive::gen_stub_pyclass]
-#[pyo3::pyclass]
-#[derive(Debug, Display, Clone, PartialEq, Eq, Hash)]
-#[debug("{}({})", self.0, self.1.iter().join_option(", ", "", ""))]
-#[display("{}({})", self.0, self.1.iter().join_option(", ", "", ""))]
-pub struct Instr(pub Gate, pub SmallVec<[u8; 2]>);
-
-impl Instr {
-    pub fn apply_permutation(&self, perm: Permut32) -> Self {
-        Instr(self.0, self.1.iter().map(|&qubit| perm.at(qubit)).collect())
-    }
-}
-
-#[pyo3_stub_gen::derive::gen_stub_pymethods]
-#[pyo3::pymethods]
-impl Instr {
-    #[new]
-    pub fn new_py(gate: Gate, qubits: Vec<u8>) -> Self {
-        Instr(gate, SmallVec::from_vec(qubits))
-    }
-    #[getter(gate)]
-    pub fn gate_py(&self) -> Gate {
-        self.0
-    }
-    
-    #[getter(qubits)]
-    pub fn qubits_py(&self) -> Vec<u8> {
-        self.1.iter().cloned().collect()
-    }
-}
 
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
 #[pyo3::pyclass(eq, str)]
@@ -140,6 +108,15 @@ impl ECCs {
     #[pyo3(name="check")]
     pub fn check_py(&self) -> Vec<ECC> {
         self.check().cloned().collect()
+    }
+    
+    pub fn __len__(&self) -> usize {
+        self.eccs.len()
+    }
+    
+    #[pyo3(name="to_list")]
+    pub fn to_list_py(&self) -> Vec<ECC> {
+        self.eccs.clone()
     }
 }
 

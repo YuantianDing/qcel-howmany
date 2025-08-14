@@ -1,12 +1,15 @@
 use std::hash::Hasher;
 
-use derive_more::Display;
+use derive_more::{Debug, Display};
 use either::Either;
 use extension_traits::extension;
 
 mod gate;
 pub use gate::*;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
+use smallvec::SmallVec;
+
+use crate::{groups::permutation::Permut32, utils::JoinOptionIter};
 pub mod param;
 
 #[gen_stub_pyclass]
@@ -99,7 +102,7 @@ impl Instruction {
 
 #[extension(pub trait InstructionSliceExt)]
 impl [Instruction] {
-    fn schedule_quantum(&self) -> (Vec<Argument>, Vec<(Gate, Vec<usize>)>) {
+    fn schedule_quantum(&self) -> (Vec<Argument>, Vec<Instr>) {
         let mut qargs = Vec::new();
         let mut results = Vec::new();
 
@@ -114,12 +117,12 @@ impl [Instruction] {
                 "Classical arguments are not supported in scheduling"
             );
 
-            let indices: Vec<usize> = gate
+            let indices: SmallVec<[u8; 2]> = gate
                 .qargs
                 .iter()
-                .map(|arg| qargs.iter().position(|a| a == arg).unwrap())
+                .map(|arg| qargs.iter().position(|a| a == arg).unwrap() as u8)
                 .collect();
-            results.push((gate.gate, indices));
+            results.push(Instr(gate.gate, indices));
         }
 
         (qargs, results)
@@ -129,12 +132,12 @@ impl [Instruction] {
 impl Instruction {
     pub fn from_quantum_schedule(
         arguments: Vec<Argument>,
-        instructions: Vec<(Gate, Vec<usize>)>,
+        instructions: Vec<Instr>,
     ) -> Vec<Self> {
         let mut results = Vec::new();
 
-        for (gate, indices) in instructions {
-            let qargs: Vec<Argument> = indices.iter().map(|&i| arguments[i].clone()).collect();
+        for Instr(gate, indices) in instructions {
+            let qargs: Vec<Argument> = indices.iter().map(|&i| arguments[i as usize].clone()).collect();
             results.push(Instruction {
                 gate,
                 qargs,
@@ -145,3 +148,35 @@ impl Instruction {
         results
     }
 }
+
+#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[pyo3::pyclass]
+#[derive(Debug, Display, Clone, PartialEq, Eq, Hash)]
+#[debug("{}({})", self.0, self.1.iter().join_option(", ", "", ""))]
+#[display("{}({})", self.0, self.1.iter().join_option(", ", "", ""))]
+pub struct Instr(pub Gate, pub SmallVec<[u8; 2]>);
+
+impl Instr {
+    pub fn apply_permutation(&self, perm: Permut32) -> Self {
+        Instr(self.0, self.1.iter().map(|&qubit| perm.at(qubit)).collect())
+    }
+    pub fn arg_mask(&self) -> u8 {
+        self.1.iter().fold(0, |acc, &q| acc | (1 << q))
+    }
+    pub fn pass_mask(&self, mut mask: u8) -> Option<u8> {
+        for &q in &self.1 {
+            if (mask >> q) & 1 != 0 {
+                continue;
+            } else if q as u32 == mask.trailing_ones() {
+                mask |= 1 << q;
+            } else {
+                return None;
+            }
+        }
+        Some(mask)
+    }
+    pub fn largest_qubit(&self) -> u8 {
+        *self.1.iter().max().unwrap_or(&0)
+    }
+}
+

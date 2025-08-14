@@ -1,5 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, hash::Hasher};
 
+use either::Either;
 use nalgebra::DMatrix;
 use nohash_hasher::BuildNoHashHasher;
 use num_complex::Complex64;
@@ -8,7 +9,7 @@ use pyo3::PyResult;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 
 use crate::{
-    circ::param::{evaluate_with_pi, NumericError},
+    circ::{param::{evaluate_with_pi, NumericError}, Argument, Instr, Instruction},
     defs::cmplx64mat_to_fixpoint,
     utils::JoinOptionIter,
 };
@@ -160,5 +161,25 @@ impl Gate {
     #[getter(nqargs)]
     pub fn nqargs_py(&self) -> usize {
         self.nqargs()
+    }
+    
+    #[pyo3(name="adjoint")]
+    pub fn adjoin_py(&self) -> Gate {
+        self.adjoint()
+    }
+
+    #[pyo3(signature=(*args))]
+    pub fn __call__(&self, args: Either<Vec<u8>, Vec<Argument>>) -> Either<Instr, Instruction> {
+        match args {
+            Either::Left(args) => {
+                assert!(args.len() == self.nqargs(), "Number of arguments not match for gate {}", self);
+                Either::Left(Instr(self.clone(), args.into()))
+            }
+            Either::Right(args) => Either::Right(Instruction {
+                gate: self.clone(),
+                qargs: args[..self.nqargs()].into(),
+                cargs: args[self.nqargs()..].into(),
+            }),
+        }
     }
 }

@@ -13,8 +13,8 @@ fn quclif(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<circ::Argument>()?;
     m.add_class::<circ::Instruction>()?;
     m.add_class::<circ::Gate>()?;
+    m.add_class::<circ::Instr>()?;
     m.add_class::<state::StateVec>()?;
-    m.add_class::<search::Instr>()?;
     m.add_class::<search::ECC>()?;
     m.add_class::<search::ECCs>()?;
     Ok(())
