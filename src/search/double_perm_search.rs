@@ -45,6 +45,20 @@ pub struct CircuitECC {
 }
 
 impl CircuitECC {
+    pub fn root(nqubits: usize) -> CircuitECC {
+        CircuitECC {
+            front_gates: LinearSet::new(),
+            back_gates: LinearSet::new(),
+            circuits: vec![
+                CircTriple {
+                    front_perm: Permut32::identity(nqubits as u8),
+                    circ: AliasList::nil(),
+                    back_perm: Permut32::identity(nqubits as u8),
+                }
+            ],
+        }
+    }
+
     pub fn simplify(&self) -> super::ECC {
         let result = self.circuits.iter().map(|triple| triple.simplify()).collect_vec();
         let set: BTreeSet<_> = result[0].0.iter().flat_map(|a| a.1.iter().cloned()).collect();
@@ -107,6 +121,7 @@ impl CircuitECCs {
             inner: Default::default(),
             nqubits,
         };
+        map.inner.insert(backtrack_state.hash_value(), CircuitECC::root(nqubits));
 
         let mut queue: VecDeque<AliasList<Instr>> = VecDeque::new();
         queue.push_back(AliasList::nil());
