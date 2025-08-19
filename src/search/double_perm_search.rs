@@ -38,6 +38,7 @@ impl std::fmt::Display for CircTriple {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CircuitECC {
     pub front_gates: LinearSet<Instr>,
     pub back_gates: LinearSet<Instr>,
@@ -72,15 +73,62 @@ impl CircuitECC {
 }
 
 
-
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Evaluator {
-    initial_state: StateVec,
-    backtrack_state: StateVec,
+    pub initial_state: StateVec,
+    pub backtrack_state: StateVec,
+}
+
+impl Evaluator {
+    pub fn from_random(nqubits: usize, rng: &mut ThreadRng) -> Self {
+        let initial_state = StateVec::from_random_symmetric(rng, nqubits as u32);
+
+        let mut backtrack_state = StateVec::from_random(rng, nqubits as u32);
+        backtrack_state.normalize_arg();
+        backtrack_state.apply_permutation(backtrack_state.get_permutation().inv());
+
+        Self { initial_state, backtrack_state }
+    }
+    pub fn nqubits(&self) -> usize {
+        self.initial_state.nqubits()
+    }
+
+    pub fn evaluate_raw(&self, instrs: &[Instr]) -> ([StateVec; 2], [Permut32; 4]) {
+        let mut state = self.initial_state.clone();
+                
+        for Instr(gate, idx) in instrs.iter() {
+            state.apply(idx, *gate);
+            assert!(state.check());
+        }
+        state.normalize_arg();
+        let back_perm_inv = state.get_permutation();
+        let back_perm = back_perm_inv.inv();
+        
+        let mut backstate = self.backtrack_state.clone();
+        backstate.apply_permutation(back_perm_inv);
+        for Instr(gate, idx) in instrs.iter().rev() {
+            backstate.apply(idx, gate.adjoint());
+        }
+        backstate.normalize_arg();
+        let front_perm = backstate.get_permutation();
+        let front_perm_inv = front_perm.inv();
+        backstate.apply_permutation(front_perm_inv);
+        return (
+            [state, backstate],
+            [front_perm, front_perm_inv, back_perm, back_perm_inv],
+        )
+    }
+
+    pub fn evaluate(&self, instrs: &[Instr]) -> (StateVec, Permut32, Permut32) {
+        let ([_, backstate], [front_perm, _, back_perm, _]) = self.evaluate_raw(instrs);
+        (backstate, front_perm, back_perm)
+    }
+    
 }
 
 pub struct CircuitECCs {
     inner: HashMap<u64, CircuitECC, BuildNoHashHasher<u64>>,
-    nqubits: usize,
+    evaluator: Evaluator,
 }
 
 
@@ -110,18 +158,19 @@ fn circuit_get_surface_gates<'a>(circ: impl Iterator<Item = &'a Instr>) -> impl 
 }
 
 impl CircuitECCs {
-    fn search(nqubits: usize, instrs: Vec<Instr>, max_size: usize, rng: &mut ThreadRng) -> CircuitECCs {
-        assert!(nqubits < 8, "Only up to 8 qubits are supported for ECC generation");
-        let initial_state = StateVec::from_random_symmetric(rng, nqubits as u32);
-
-        let mut backtrack_state = StateVec::from_random(rng, nqubits as u32);
-        backtrack_state.apply_permutation(backtrack_state.get_permutation().inv());
-
+    pub fn new(evaluator: Evaluator) -> Self {
         let mut map = CircuitECCs {
             inner: Default::default(),
-            nqubits,
+            evaluator,
         };
-        map.inner.insert(backtrack_state.hash_value(), CircuitECC::root(nqubits));
+        map.inner.insert(map.evaluator.backtrack_state.hash_value(), CircuitECC::root(map.evaluator.nqubits()));
+        map
+    }
+    fn search(nqubits: usize, instrs: Vec<Instr>, max_size: usize, rng: &mut ThreadRng) -> CircuitECCs {
+        assert!(nqubits < 8, "Only up to 8 qubits are supported for ECC generation");
+
+        let evaluator = Evaluator::from_random(nqubits, rng);
+        let mut map = CircuitECCs::new(evaluator);
 
         let mut queue: VecDeque<AliasList<Instr>> = VecDeque::new();
         queue.push_back(AliasList::nil());
@@ -142,27 +191,11 @@ impl CircuitECCs {
                 // if instr.pass_mask(mask).is_none() { c1 += 1; continue; }
 
                 instr_vec.push(instr.clone());
-                let mut state = initial_state.clone();
+                let (
+                    [_, backstate],
+                    [front_perm, front_perm_inv, back_perm, _],
+                ) = map.evaluator.evaluate_raw(&instr_vec[..]);
                 
-                for Instr(gate, idx) in instr_vec.iter() {
-                    state.apply(idx, *gate);
-                    assert!(state.check());
-                }
-                assert!(state.check());
-                state.normalize_arg();
-                assert!(state.check(), "{state}");
-                let back_perm_inv = state.get_permutation();
-                let back_perm = back_perm_inv.inv();
-                
-                let mut backstate = backtrack_state.clone();
-                backstate.apply_permutation(back_perm_inv);
-                for Instr(gate, idx) in instr_vec.iter().rev() {
-                    backstate.apply(idx, gate.adjoint());
-                }
-                backstate.normalize_arg();
-                let front_perm = backstate.get_permutation();
-                let front_perm_inv = front_perm.inv();
-                backstate.apply_permutation(front_perm_inv);
                 {
                     let mut front_gates_iter = circuit_get_surface_gates(instr_vec.iter())
                         .map(|instr| instr.apply_permutation(front_perm_inv));
@@ -173,7 +206,7 @@ impl CircuitECCs {
                         Entry::Vacant(v) => {
                             let new_point = circ.cons(instr.clone());
                             if instr_vec.len() < max_size { queue.push_back(new_point.clone()); }
-                            // println!("\t{instr}: {front_perm}, {back_perm} new value");
+                            // println!("\t{instr}: {front_perm}, {back_perm} new value {backstate}");
                             v.insert(CircuitECC {
                                 front_gates: front_gates_iter.collect(),
                                 back_gates: back_gates_iter.collect(),
@@ -204,7 +237,7 @@ impl CircuitECCs {
     pub fn simplify(self) -> super::ECCs {
         super::ECCs {
             eccs: self.inner.values().map(|a| a.simplify()).collect(),
-            nqubits: self.nqubits,
+            nqubits: self.evaluator.nqubits(),
         }
     }
     pub fn generate(
@@ -230,5 +263,10 @@ impl CircuitECCs {
         instructions.sort_by_key(|a| a.largest_qubit());
         
         CircuitECCs::search(nqubits, instructions, max_size, rng)
+    }
+
+    pub fn find(&self, instrs: &[Instr]) -> Option<&CircuitECC> {
+        let hash = self.evaluator.evaluate(instrs).0.hash_value();
+        self.inner.get(&hash)
     }
 }

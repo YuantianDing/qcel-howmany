@@ -58,10 +58,8 @@ pub struct ECCs {
 
 impl std::fmt::Display for ECCs {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (i, ecc) in self.iter().enumerate() {
-            if ecc.len() > 1 {
-                write!(f, "{}{ecc}", if i > 0 { " + " } else {""})?;
-            }
+        for (i, ecc) in self.iter().filter(|ecc| ecc.len() > 1).enumerate() {
+            write!(f, "{}{ecc}", if i > 0 { " & " } else {""})?;
         }
         Ok(())
     }

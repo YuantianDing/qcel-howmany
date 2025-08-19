@@ -180,3 +180,14 @@ impl Instr {
     }
 }
 
+#[macro_export]
+macro_rules! instr_vec {
+    ($($gate:tt $($n:literal),*);*) => {
+        vec![
+            $(
+                $crate::circ::Instr(*$gate, smallvec::smallvec![$($n as u8),*])
+            ),*
+        ]
+    };
+}
+
