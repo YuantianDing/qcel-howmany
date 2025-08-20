@@ -8,7 +8,7 @@ use std::{
     array, cell::{RefCell, UnsafeCell}, cmp::Ordering, collections::BTreeSet, hash::{Hash, Hasher}
 };
 
-use crate::{circ::{Gate, Instr}, defs::{cmplx64_to_fixpoint, f64_percision_repr, F64_PERCISION_EPSILON}, groups::permutation::Permut32};
+use crate::{circ::{Gate, Instr}, defs::{cmplx64_to_fixpoint, f64_percision_repr, F64_PERCISION_EPSILON}, groups::permutation::Permut32, state::indices::qubit_matrix_indices2};
 
 #[gen_stub_pyclass]
 #[pyo3::pyclass(eq, str)]
@@ -96,58 +96,17 @@ impl StateVec {
         }
     }
     pub fn get_permutation(&self) -> Permut32 {
-        Permut32::from_order(self.nqubits() as u8, |a, b| {
-            let value = self.at(1 << a) - self.at(1 << b);
-            if value.modulus() > F64_PERCISION_EPSILON {
-                return if value.re > 0.0 { Ordering::Greater } else { Ordering::Less };
+        Permut32::from_order(self.nqubits() as u8, |a, b| self.compare_qubits(a, b))
+    }
+    pub fn get_permutation_with_eq(&self) -> (Permut32, u8) {
+        let mut eq_mask = 0u8;
+        (Permut32::from_order(self.nqubits() as u8, |a, b| {
+            let res = self.compare_qubits(a, b);
+            if res == Ordering::Equal {
+                eq_mask |= 1 << std::cmp::max(a, b);
             }
-            let mask = (1 << self.nqubits()) - 1;
-            let value = self.at(mask & !(1 << a)) - self.at(mask & !(1 << b));
-            if value.modulus() > F64_PERCISION_EPSILON {
-                return if value.re > 0.0 { Ordering::Greater } else { Ordering::Less };
-            }
-
-            let mut aset = SmallVec::<[(i64,i64); 8]>::new();
-            let mut bset = SmallVec::<[(i64,i64); 8]>::new();
-            for i in 0u8..(self.nqubits() as u8) {
-                if i != a {
-                    let v = cmplx64_to_fixpoint(self.at((1 << a) | (1 << i)));
-                    aset.push((v.re, v.im));
-                }
-                if i != b {
-                    let v = cmplx64_to_fixpoint(self.at((1 << b) | (1 << i)));
-                    bset.push((v.re, v.im));
-                }
-            }
-            aset.sort();
-            bset.sort();
-
-            let result = aset.cmp(&bset);
-            if result.is_ne() {
-                return result;
-            }
-
-            let mut aset = SmallVec::<[(i64,i64); 8]>::new();
-            let mut bset = SmallVec::<[(i64,i64); 8]>::new();
-            for i in 0u8..(self.nqubits() as u8) {
-                if i != a {
-                    let v = cmplx64_to_fixpoint(self.at(mask & !(1 << a) & !(1 << i)));
-                    aset.push((v.re, v.im));
-                }
-                if i != b {
-                    let v = cmplx64_to_fixpoint(self.at(mask & !(1 << b) & !(1 << i)));
-                    bset.push((v.re, v.im));
-                }
-            }
-            aset.sort();
-            bset.sort();
-            let result = aset.cmp(&bset);
-            if result.is_ne() {
-                return result;
-            }
-
-            return Ordering::Equal;
-        })
+            res
+        }), eq_mask)
     }
     pub fn apply_permutation(&mut self, permut: Permut32) {
         reserve_state_vec_cache(self.nqubits());
@@ -161,6 +120,65 @@ impl StateVec {
             }
             std::mem::swap(cache, self)
         })
+    }
+    pub fn qubit_equiv(&mut self, q1: u8, q2: u8) -> bool {
+        for indices in qubit_matrix_indices2(self.nqubits(), [q1, q2]) {
+            let vec = self.access(indices);
+            if cmplx64_to_fixpoint(vec[1]) != cmplx64_to_fixpoint(vec[2]) { return false; }
+        }
+        true
+    }
+    pub fn compare_qubits(&self, a: u8, b: u8) -> Ordering {
+        let value = self.at(1 << a) - self.at(1 << b);
+        if value.modulus() > F64_PERCISION_EPSILON {
+            return if value.re > 0.0 { Ordering::Greater } else { Ordering::Less };
+        }
+        let mask = (1 << self.nqubits()) - 1;
+        let value = self.at(mask & !(1 << a)) - self.at(mask & !(1 << b));
+        if value.modulus() > F64_PERCISION_EPSILON {
+            return if value.re > 0.0 { Ordering::Greater } else { Ordering::Less };
+        }
+
+        let mut aset = SmallVec::<[(i64,i64); 8]>::new();
+        let mut bset = SmallVec::<[(i64,i64); 8]>::new();
+        for i in 0u8..(self.nqubits() as u8) {
+            if i != a {
+                let v = cmplx64_to_fixpoint(self.at((1 << a) | (1 << i)));
+                aset.push((v.re, v.im));
+            }
+            if i != b {
+                let v = cmplx64_to_fixpoint(self.at((1 << b) | (1 << i)));
+                bset.push((v.re, v.im));
+            }
+        }
+        aset.sort();
+        bset.sort();
+
+        let result = aset.cmp(&bset);
+        if result.is_ne() {
+            return result;
+        }
+
+        let mut aset = SmallVec::<[(i64,i64); 8]>::new();
+        let mut bset = SmallVec::<[(i64,i64); 8]>::new();
+        for i in 0u8..(self.nqubits() as u8) {
+            if i != a {
+                let v = cmplx64_to_fixpoint(self.at(mask & !(1 << a) & !(1 << i)));
+                aset.push((v.re, v.im));
+            }
+            if i != b {
+                let v = cmplx64_to_fixpoint(self.at(mask & !(1 << b) & !(1 << i)));
+                bset.push((v.re, v.im));
+            }
+        }
+        aset.sort();
+        bset.sort();
+        let result = aset.cmp(&bset);
+        if result.is_ne() {
+            return result;
+        }
+
+        return Ordering::Equal;
     }
 }
 

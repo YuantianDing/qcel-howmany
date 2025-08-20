@@ -87,6 +87,16 @@ impl<T> Clone for AliasList<T> {
     }
 }
 
+impl<T: 'static> FromIterator<T> for AliasList<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut list = Self::Nil;
+        for item in iter {
+            list = list.cons(item);
+        }
+        list
+    }
+}
+
 
 
 impl<T: 'static> Iterator for AliasList<T> {

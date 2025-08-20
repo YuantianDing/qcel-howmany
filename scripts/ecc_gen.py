@@ -14,5 +14,5 @@ ecc_set = quclif.ECCs.generate(
     gates=gates,
     max_size=6,
 )
-
+print(ecc_set)
 ecc_set.dump_quartz("eccset.json")

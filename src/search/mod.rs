@@ -2,7 +2,7 @@ use derive_more::{Debug, Deref, DerefMut, Display, From, Index, Into};
 use itertools::Itertools;
 use smallvec::SmallVec;
 
-use crate::{circ::{gates::SWAP, Gate, Instr}, groups::permutation::Permut32, search::double_perm_search::CircuitECCs, state::StateVec, utils::JoinOptionIter};
+use crate::{circ::{gates::SWAP, Gate, Instr}, groups::permutation::Permut32, search::double_perm_search::{CircuitECCs, Evaluator}, state::StateVec, utils::JoinOptionIter};
 
 
 
@@ -89,7 +89,8 @@ impl ECCs {
         gates: Vec<Gate>,
         max_size: usize,
     ) -> ECCs {
-        CircuitECCs::generate(nqubits, gates, max_size, &mut rand::rng()).simplify()
+        let evaluator = Evaluator::from_random(nqubits, &mut rand::rng());
+        CircuitECCs::generate(&evaluator, gates, max_size).simplify()
     }
     pub fn dump_quartz(&self, filepath: String) -> pyo3::PyResult<()> {
         use std::fs::File;

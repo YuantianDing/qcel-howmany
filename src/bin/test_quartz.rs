@@ -1,22 +1,43 @@
-use quclif::{circ::{gates::{CX, H, T, TDG, X, Z}, Instr}, instr_vec, search::{double_perm_search::CircuitECCs, ECCs}, utils::JoinOptionIter};
+use quclif::{circ::{gates::{CX, H, T, TDG, X, Z}, Instr}, instr_vec, search::{double_perm_search::{CircTriple, CircuitECCs, Evaluator}, ECCs}, utils::JoinOptionIter};
 
 
 
 fn main() {
-    let eccs = CircuitECCs::generate(5, vec![*H, *X, *TDG, *T, *CX], 5, &mut rand::rng());
+    let evaluator = Evaluator::from_random(5, &mut rand::rng());
+    let eccs = CircuitECCs::generate(&evaluator, vec![*H, *X, *TDG, *T, *CX], 5);
     
     let instrs = instr_vec![
         TDG 1;
         CX 0,1;
         T 1;
         CX 0,1;
-        T 1
+        T 1;
     ];
     
-    for i in 0..=instrs.len() {
-        eccs.find(&instrs[..i]).map(|a| println!("{i} {}", a.simplify()));
+    for i in 0..instrs.len() {
+        for j in (i+1)..=instrs.len() {
+            let (backstate, front_perm, back_perm) = evaluator.evaluate(&instrs[i..j]);
+            eccs.get(&backstate.hash_value()).map(|ecc| {
+                println!("{i}..{j} {front_perm} {} {back_perm}", instrs[i..j].iter().join_option(" ", "", ""));
+                for c in ecc.circuits.iter() {
+                    println!("\t{}", c);
+                }
+                println!("\t{}", CircTriple {
+                    circ: instrs[i..j].iter().cloned().collect(),
+                    front_perm,
+                    back_perm,
+                });
+            });
+        }
     }
 
     let eccs = eccs.simplify();
     eccs.dump_quartz("eccset.json".into()).unwrap();
+    println!("Number of ECCs: {}", eccs.len());
+    for problem in eccs.check() {
+        eprintln!("Correctness Error:");
+        for c in problem.circuits() {
+            eprintln!("\t{}", c.iter().join_option(" ", "", ""))
+        }
+    }
 }
