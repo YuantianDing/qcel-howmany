@@ -12,7 +12,7 @@ gates = [quclif.Gate(g) for g in gates]
 ecc_set = quclif.ECCs.generate(
     nqubits=5,
     gates=gates,
-    max_size=6,
+    max_size=5,
 )
-print(ecc_set)
+# print(ecc_set)
 ecc_set.dump_quartz("eccset.json")
