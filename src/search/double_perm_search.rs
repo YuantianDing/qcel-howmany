@@ -243,22 +243,23 @@ impl CircuitECCs {
                     // println!("\t{instr}: {front_perm}, {back_perm} skip -> {}", o.get().circuits[0].circ);
                 // }
                 let entry = o.get_mut();
-                if entry.size == instr_vec.len() {
+                let front_unique = front_gates_iter.clone().all(|instr| !entry.front_gates.contains(&instr));
+                let back_unique = back_gates_iter.clone().all(|instr| !entry.back_gates.contains(&instr));
+                if front_unique && back_unique {
+                    for instr in front_gates_iter { entry.front_gates.insert(instr); }
+                    for instr in back_gates_iter { entry.back_gates.insert(instr); }
                     let new_point = circ.cons(instr);
                     let triple = CircTriple { front_perm, circ: new_point.clone(), back_perm};
                     entry.circuits.push(triple);
-                    Some(new_point)
+                    if entry.size == instr_vec.len() {
+                        Some(new_point)
+                    } else { None }
                 } else {
-                    let front_unique = front_gates_iter.clone().all(|instr| !entry.front_gates.contains(&instr));
-                    let back_unique = back_gates_iter.clone().all(|instr| !entry.back_gates.contains(&instr));
-                    if front_unique && back_unique {
-                        for instr in front_gates_iter { entry.front_gates.insert(instr); }
-                        for instr in back_gates_iter { entry.back_gates.insert(instr); }
-                        let new_point = circ.cons(instr);
-                        let triple = CircTriple { front_perm, circ: new_point.clone(), back_perm};
-                        entry.circuits.push(triple);
+                    if entry.size == instr_vec.len() {
+                        Some(circ.cons(instr))
+                    } else {
+                        None
                     }
-                    None
                 }
             }
         }
