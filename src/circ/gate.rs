@@ -7,6 +7,8 @@ use num_complex::Complex64;
 use numpy::{PyArray2, PyArrayLike2, ToPyArray};
 use pyo3::PyResult;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
+use serde::ser::SerializeStruct;
+use serde_json::Value;
 
 use crate::{
     circ::{param::{evaluate_with_pi, NumericError}, Argument, Instr, Instruction},
@@ -56,11 +58,25 @@ thread_local! {
 #[gen_stub_pyclass]
 #[pyo3::pyclass(eq, frozen, hash, str)]
 #[derive(
-    derive_more::Debug, Clone, Copy, derive_more::Display, PartialEq, Eq, Hash, PartialOrd, Ord,
+    derive_more::Debug, Clone, Copy, derive_more::Display, PartialEq, Eq, Hash, serde::Deserialize, serde::Serialize, PartialOrd, Ord
 )]
 #[debug("Gate({} -> {}{})", self.0, self.name(), self.params().iter().join_option(", ", "(", ")"))]
 #[display("{}{}", self.name(), self.params().iter().join_option(", ", "(", ")"))]
 pub struct Gate(u64);
+
+// impl PartialOrd for Gate {
+//     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+//         self.name().partial_cmp(&other.name()).or_else(||
+//             self.0.partial_cmp(&other.0))
+//     }
+// }
+
+// impl Ord for Gate {
+//     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+//         if self.0 == other.0 { return std::cmp::Ordering::Equal; }
+//         self.data(|s| other.data(|o| s.name.cmp(&o.name))).then_with(|| self.0.cmp(&other.0))
+//     }
+// }
 
 impl Gate {
     pub fn new(name: String, params: Vec<String>, matrix: DMatrix<Complex64>) -> Self {
@@ -100,6 +116,9 @@ impl Gate {
     pub fn matrix<T>(&self, f: impl FnOnce(&DMatrix<Complex64>) -> T) -> T {
         INSTRUCTION_SET.with(|set| f(&set.borrow()[&self.0].matrix))
     }
+    pub fn data<T>(&self, f: impl FnOnce(&GateData) -> T) -> T {
+        INSTRUCTION_SET.with(|set| f(&set.borrow()[&self.0]))
+    }
 
     pub fn nqargs(&self) -> usize {
         INSTRUCTION_SET.with(|set| set.borrow()[&self.0].matrix.nrows().trailing_zeros() as usize)
@@ -119,6 +138,9 @@ impl Gate {
             }
         }
     }
+    pub fn instr(&self, qargs: impl IntoIterator<Item=u8>) -> Instr {
+        Instr(self.clone(), qargs.into_iter().collect())
+    }
 }
 
 pub mod gates;
@@ -130,6 +152,22 @@ impl Gate {
     #[new]
     pub fn new_py(name: String, params: Vec<String>, matrix: PyArrayLike2<Complex64>) -> Self {
         Self::new(name, params, matrix.as_matrix().into())
+    }
+
+    #[staticmethod]
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name.to_uppercase().as_str() {
+            "H" => Some(*gates::H),
+            "X" => Some(*gates::X),
+            "Z" => Some(*gates::Z),
+            "T" => Some(*gates::T),
+            "TDG" => Some(*gates::TDG),
+            "S" => Some(*gates::S),
+            "SDG" => Some(*gates::SDG),
+            "CX" => Some(*gates::CX),
+            "SWAP" => Some(*gates::SWAP),
+            _ => None,
+        }
     }
 
     #[getter(name)]
@@ -155,7 +193,7 @@ impl Gate {
 
     #[getter(matrix)]
     pub fn matrix_py<'py>(&self, py: pyo3::Python<'py>) -> pyo3::Bound<'py, PyArray2<Complex64>> {
-        self.matrix(|m| m.to_pyarray(py))
+        self.matrix(|m| <DMatrix<Complex64> as ToPyArray>::to_pyarray(m, py).to_owned())
     }
     
     #[getter(nqargs)]

@@ -24,8 +24,11 @@ def format_number(num: float):
     return f"{num:.6g}"
 
 
-def Gate(instr: qiskit.circuit.Instruction):
-    return inner.Gate(instr.name, [format_number(p) for p in instr.params], Operator(instr).reverse_qargs().to_matrix())
+def Gate(instr: str | qiskit.circuit.Instruction):
+    if type(instr) == str:
+        return inner.Gate.from_name(instr)
+    else:
+        return inner.Gate(instr.name, [format_number(p) for p in instr.params], Operator(instr).reverse_qargs().to_matrix())
 
 def Instruction(instr: qiskit._accelerate.circuit.CircuitInstruction):
     return inner.Instruction(Gate(instr.operation), [(qbit._register.name, qbit._index) for qbit in instr.qubits], [(cbit._register.name, cbit._index) for cbit in instr.clbits])
@@ -63,3 +66,6 @@ ECCs = inner.ECCs
 ECC = inner.ECC
 Instr = inner.Instr
 StateVec = inner.StateVec
+Circ = inner.Circ
+IdentityCirc = inner.IdentityCirc
+IdentitySet = inner.IdentitySet

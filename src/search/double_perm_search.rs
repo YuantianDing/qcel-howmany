@@ -251,18 +251,51 @@ impl CircuitECCs {
                     let new_point = circ.cons(instr);
                     let triple = CircTriple { front_perm, circ: new_point.clone(), back_perm};
                     entry.circuits.push(triple);
-                    if entry.size == instr_vec.len() {
-                        Some(new_point)
-                    } else { None }
-                } else {
-                    if entry.size == instr_vec.len() {
-                        Some(circ.cons(instr))
-                    } else {
-                        None
-                    }
                 }
+                None
             }
         }
+    }
+    fn search_naive(evaluator: &Evaluator, instrs: Vec<Instr>, max_size: usize) -> CircuitECCs {
+        let mut map = CircuitECCs::new(evaluator);
+        let nqubits = evaluator.nqubits() as u8;
+        
+        let mut queue: VecDeque<AliasList<Instr>> = VecDeque::new();
+        queue.push_back(AliasList::nil());
+
+        let mut instr_vec = Vec::new();
+        let mut counters = [0; 3];
+        while let Some(circ) = queue.pop_front() {
+            instr_vec.clear();
+            instr_vec.extend(circ.iter().cloned());
+            instr_vec.reverse();
+            // let mask = instr_vec.iter().fold(0u8, |a, i| a | i.arg_mask());
+            
+            if counters[0] % 400 == 0 {
+                println!("#{} Exploring {} ({} queued, {} ECCs, {} circs, {} circs perm)", counters[0], instr_vec.iter().join_option(" ", "", ""), queue.len(), map.len(), counters[1], counters[2]);
+            }
+            
+            for instr in instrs.iter() {
+                // if instr.pass_mask(mask).is_none() { continue; }
+                
+                instr_vec.push(instr.clone());
+                let mut state = evaluator.backtrack_state.clone();
+                for instr in instr_vec.iter() {
+                    state.apply(&instr.1, instr.0);
+                }
+                state.normalize_arg();
+                
+                if let Some(new_point) = map.add_entry(state.hash_value(), Permut32::identity(nqubits), Permut32::identity(nqubits), &circ, &instr_vec) {
+                    if instr_vec.len() < max_size { queue.push_back(new_point.clone()); }
+                }
+                counters[2] += 1;
+
+                instr_vec.pop();
+                counters[1] += 1;
+            }
+            counters[0] += 1;
+        }
+        map
     }
     fn search(evaluator: &Evaluator, instrs: Vec<Instr>, max_size: usize) -> CircuitECCs {
         let mut map = CircuitECCs::new(evaluator);
@@ -328,6 +361,28 @@ impl CircuitECCs {
 
         instructions.sort_by_key(|a| a.largest_qubit());
         CircuitECCs::search(&evaluator, instructions, max_size)
+    }
+    pub fn generate_naive(
+        evaluator: &Evaluator,
+        gates: Vec<Gate>,
+        max_size: usize,
+    ) -> CircuitECCs {
+        let mut instructions: Vec<Instr> = Vec::new();
+
+        for instr in gates {
+            match instr.nqargs() {
+                1 => instructions.extend((0..evaluator.nqubits()).map(|i| Instr(instr.clone(), smallvec::smallvec![i as u8]))),
+                2 => instructions.extend((0..evaluator.nqubits()).flat_map(|i| {
+                    (0..evaluator.nqubits())
+                        .filter(move |j| *j != i)
+                        .map(move |j| Instr(instr.clone(), smallvec::smallvec![i as u8, j as u8]))
+                })),
+                _ => panic!("Only 1 and 2 qubit instructions are supported"),
+            }
+        }
+
+        instructions.sort_by_key(|a| a.largest_qubit());
+        CircuitECCs::search_naive(&evaluator, instructions, max_size)
     }
     
 }

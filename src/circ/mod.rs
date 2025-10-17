@@ -6,6 +6,7 @@ use extension_traits::extension;
 
 mod gate;
 pub use gate::*;
+use itertools::Itertools;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use smallvec::SmallVec;
 
@@ -151,12 +152,45 @@ impl Instruction {
 
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
 #[pyo3::pyclass]
-#[derive(Debug, Display, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Display, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[debug("{}({})", self.0, self.1.iter().join_option(", ", "", ""))]
 #[display("{}({})", self.0, self.1.iter().join_option(", ", "", ""))]
 pub struct Instr(pub Gate, pub SmallVec<[u8; 2]>);
 
+
+impl PartialOrd for Instr {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.cmp(other).into()
+    }
+}
+
+impl Ord for Instr {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.1.cmp(&other.1).then_with(|| self.0.cmp(&other.0))
+    }
+}
+
+#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[pyo3::pymethods]
 impl Instr {
+    #[new]
+    pub fn new(gate: Gate, qargs: Vec<u8>) -> Self {
+        assert!(
+            qargs.len() == gate.nqargs(),
+            "Number of qubit arguments does not match gate arity"
+        );
+        let qargs = SmallVec::from_vec(qargs);
+        assert!(qargs.iter().all_unique(), "Qubit arguments must be unique");
+        Instr(gate, qargs)
+    }
+    #[getter]
+    pub fn gate(&self) -> Gate {
+        self.0
+    }
+    #[getter]
+    pub fn qargs(&self) -> Vec<u8> {
+        self.1.iter().cloned().collect()
+    }
     pub fn apply_permutation(&self, perm: Permut32) -> Self {
         Instr(self.0, self.1.iter().map(|&qubit| perm.at(qubit)).collect())
     }
@@ -177,6 +211,30 @@ impl Instr {
     }
     pub fn largest_qubit(&self) -> u8 {
         *self.1.iter().max().unwrap_or(&0)
+    }
+    pub fn permut(&self, perm: Permut32) -> Self {
+        Instr(self.0, self.1.iter().map(|&q| perm.at(q)).collect())
+    }
+    pub fn disjoint(&self, other: &Instr) -> bool {
+        self.arg_mask() & other.arg_mask() == 0
+    }
+    pub fn adjoint(&self) -> Self {
+        Instr(self.0.adjoint(), self.1.clone())
+    }
+    pub fn __str__(&self) -> String {
+        format!("{}", self)
+    }
+    pub fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+    pub fn __hash__(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
+    }
+    pub fn position_of_qubit(&self, qubit: u8) -> Option<usize> {
+        self.1.iter().position(|&q| q == qubit)
     }
 }
 

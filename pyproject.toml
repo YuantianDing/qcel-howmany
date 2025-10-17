@@ -21,3 +21,9 @@ tests = [
 [tool.maturin]
 python-source = "python"
 features = ["pyo3/extension-module"]
+
+[dependency-groups]
+dev = [
+    "permuta>=2.3.0",
+    "tqdm>=4.67.1",
+]

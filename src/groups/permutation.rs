@@ -1,5 +1,8 @@
 use std::{cmp::Ordering, vec};
 
+use pyo3::{types::{PyAnyMethods, PyTuple}, Bound, FromPyObject, IntoPyObject, Py, PyErr};
+use pyo3_stub_gen::PyStubType;
+
 
 const SORTING_NETWORKS : [&[(u8, u8)]; 9] = [
     &[],
@@ -13,7 +16,25 @@ const SORTING_NETWORKS : [&[(u8, u8)]; 9] = [
     &[(0,2),(1,3),(4,6),(5,7), (0,4),(1,5),(2,6),(3,7), (0,1),(2,3),(4,5),(6,7), (2,4),(3,5), (1,4),(3,6), (1,2),(3,4),(5,6)]
 ];
 
-#[derive(derive_more::Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+fn all_permutation(len: u8) -> Vec<Permut32> {
+    assert!(len <= 8);
+    let mut p: Vec<u8> = (0..len).collect();
+    permutohedron::Heap::new(&mut p)
+        .map(|p| Permut32::from_iter_unchecked(p.iter().cloned()))
+        .collect::<Vec<_>>()
+}
+
+lazy_static::lazy_static!(
+    pub static ref ALL_PERMUTATIONS: Vec<Vec<Permut32>> = {
+        let mut result = Vec::with_capacity(9);
+        for len in 0..=8 {
+            result.push(all_permutation(len));
+        }
+        result
+    };
+);
+
+#[derive(derive_more::Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
 #[debug("{self}")]
 pub struct Permut32 {
     pub raw: u32
@@ -95,6 +116,34 @@ impl Permut32 {
         }
         inv.set_len(self.len());
         inv
+    }
+    pub fn inverse(&self) -> Self {
+        self.inv()
+    }
+    pub fn all(len: u8) -> &'static Vec<Permut32> {
+        &ALL_PERMUTATIONS[len as usize]
+    }
+    
+    pub fn coordinate_permute(&self, other: Permut32) -> (Permut32, Permut32) {
+        match self.len().cmp(&other.len()) {
+            Ordering::Greater => {
+                let new_other_perm = Permut32::from_iter_unchecked(
+                    (0..other.len())
+                        .map(|i| other.at(i))
+                        .chain(other.len()..self.len()),
+                );
+                (*self, new_other_perm)
+            }
+            Ordering::Less => {
+                let new_self_perm = Permut32::from_iter_unchecked(
+                    (0..self.len())
+                        .map(|i| self.at(i))
+                        .chain(self.len()..other.len()),
+                );
+                (new_self_perm, other)
+            }
+            Ordering::Equal => (*self, other),
+        }
     }
     pub fn len(&self) -> u8 {
         ((self.raw >> 3 * 8) & 7) as u8
@@ -210,6 +259,31 @@ impl std::fmt::Display for Permut32 {
 }
 
 
+impl<'py> IntoPyObject<'py> for Permut32 {
+    
+    type Target = PyTuple;
+    type Output = Bound<'py, PyTuple>;
+    type Error = PyErr;
+    
+    fn into_pyobject(self, py: pyo3::Python<'py>) -> Result<Self::Output, Self::Error> {
+        let elements: Vec<u8> = self.iter().collect();
+        PyTuple::new(py, &elements).into()
+    }
+    
+}
+
+impl<'py> FromPyObject<'py> for Permut32 {
+    fn extract_bound(ob: &Bound<'py, pyo3::PyAny>) -> pyo3::PyResult<Self> {
+        let seq: Vec<u8> = ob.extract()?;
+        Ok(Permut32::from_iter(seq.into_iter()))
+    }
+}
+
+impl PyStubType for Permut32 {
+    fn type_output() -> pyo3_stub_gen::TypeInfo {
+        <Vec<u8> as PyStubType>::type_output()
+    }
+}
 
 #[cfg(test)]
 mod test {

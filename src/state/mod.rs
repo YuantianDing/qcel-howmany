@@ -12,7 +12,7 @@ use crate::{circ::{Gate, Instr}, defs::{cmplx64_to_fixpoint, f64_percision_repr,
 
 #[gen_stub_pyclass]
 #[pyo3::pyclass(eq, str)]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct StateVec {
     pub re: Box<[f64]>,
     pub im: Box<[f64]>,
@@ -40,6 +40,22 @@ impl std::fmt::Display for StateVec {
                 write!(f, "{:.4}j", a.1)?;
             } else {
                 write!(f, "{:.4}{:+.4}j", a.0, a.1)?;
+            }
+        }
+        write!(f, "]")
+    }
+}
+impl std::fmt::Debug for StateVec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[")?;
+        for (i, a) in self.re.iter().zip(self.im.iter()).enumerate() {
+            if i > 0 { write!(f, ", ")?; }
+            if a.1.abs() < F64_PERCISION_EPSILON {
+                write!(f, "{:?}", a.0)?;
+            } else if a.0.abs() < F64_PERCISION_EPSILON {
+                write!(f, "{:?}j", a.1)?;
+            } else {
+                write!(f, "{:?}{:+?}j", a.0, a.1)?;
             }
         }
         write!(f, "]")
@@ -441,6 +457,15 @@ impl StateVec {
 
         state_vec.normalize();
         state_vec
+    }
+    pub fn approx_eq(&self, other: &Self, epsilon: f64) -> bool {
+        if self.len() != other.len() {
+            return false;
+        }
+        
+        (0..self.len()).map(|i| {
+            (self.re[i] - other.re[i]).abs() + (self.im[i] - other.im[i]).abs() 
+        }).sum::<f64>() < epsilon
     }
 }
 

@@ -10,7 +10,7 @@ gates = [quclif.Gate(g) for g in gates]
 
 
 ecc_set = quclif.ECCs.generate(
-    nqubits=5,
+    nqubits=3,
     gates=gates,
     max_size=5,
 )
