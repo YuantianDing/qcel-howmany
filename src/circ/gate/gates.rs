@@ -6,6 +6,17 @@ use crate::circ::Gate;
 
 
 lazy_static::lazy_static!(
+    pub static ref I: Gate = {
+        Gate::new(
+            "i".to_string(),
+            vec![],
+            DMatrix::from_row_slice(2, 2, &[
+                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
+                Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0),
+            ])
+        )
+    };
+
     pub static ref H: Gate = {
         Gate::new(
             "h".to_string(),
@@ -35,6 +46,17 @@ lazy_static::lazy_static!(
             DMatrix::from_row_slice(2, 2, &[
                 Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
                 Complex64::new(0.0, 0.0), Complex64::new(-1.0, 0.0),
+            ])
+        )
+    };
+
+    pub static ref Y: Gate = {
+        Gate::new(
+            "y".to_string(),
+            vec![],
+            DMatrix::from_row_slice(2, 2, &[
+                Complex64::new(0.0, 0.0), Complex64::new(0.0, -1.0),
+                Complex64::new(0.0, 1.0), Complex64::new(0.0, 0.0),
             ])
         )
     };
@@ -91,6 +113,56 @@ lazy_static::lazy_static!(
                 Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
                 Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0),
                 Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
+            ])
+        )
+    };
+
+    pub static ref CZ : Gate = {
+        Gate::new(
+            "cz".to_string(),
+            vec![],
+            DMatrix::from_row_slice(4, 4, &[
+                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
+                Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
+                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
+                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(-1.0, 0.0),
+            ])
+        )
+    };
+    pub static ref CS : Gate = {
+        Gate::new(
+            "cs".to_string(),
+            vec![],
+            DMatrix::from_row_slice(4, 4, &[
+                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
+                Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
+                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
+                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 1.0),
+            ])
+        )
+    };
+    pub static ref CSDG : Gate = {
+        Gate::new(
+            "csdg".to_string(),
+            vec![],
+            DMatrix::from_row_slice(4, 4, &[
+                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
+                Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
+                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
+                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, -1.0),
+            ])
+        )
+    };
+
+    pub static ref CY: Gate = {
+        Gate::new(
+            "cy".to_string(),
+            vec![],
+            DMatrix::from_row_slice(4, 4, &[
+                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
+                Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
+                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, -1.0),
+                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 1.0), Complex64::new(0.0, 0.0),
             ])
         )
     };

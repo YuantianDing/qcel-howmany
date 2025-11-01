@@ -170,6 +170,15 @@ impl Ord for Instr {
     }
 }
 
+impl Instr {
+    pub fn reindex(&self, map: &mut crate::utils::DenseIndexMap) -> Self {
+        Instr(
+            self.0,
+            self.1.iter().map(|&q| map.get_or_insert(q as usize) as u8).collect(),
+        )
+    }
+}
+
 #[pyo3_stub_gen::derive::gen_stub_pymethods]
 #[pyo3::pymethods]
 impl Instr {

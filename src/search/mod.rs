@@ -2,7 +2,7 @@ use derive_more::{Debug, Deref, DerefMut, Display, From, Index, Into};
 use itertools::Itertools;
 use smallvec::SmallVec;
 
-use crate::{circ::{gates::SWAP, Gate, Instr}, groups::permutation::Permut32, search::double_perm_search::{CircuitECCs, Evaluator}, state::StateVec, utils::JoinOptionIter};
+use crate::{circ::{gates::SWAP, Gate, Instr}, groups::permutation::Permut32, search::double_perm_search::{RawECCs, Evaluator}, state::StateVec, utils::{DenseIndexMap, JoinOptionIter}};
 
 
 
@@ -11,8 +11,8 @@ pub mod double_perm_search;
 
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
 #[pyo3::pyclass(eq, str)]
-#[derive(Debug, Deref, DerefMut, Index, From, Into, Clone, PartialEq, Eq, Hash)]
-pub struct ECC(Vec<(Vec<Instr>, Permut32)>);
+#[derive(Debug, Deref, DerefMut, Index, From, Into, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub struct ECC(pub Vec<(Vec<Instr>, Permut32)>);
 
 impl ECC {
     pub fn circuits(&self) -> impl Iterator<Item=Vec<Instr>> + '_ {
@@ -22,6 +22,19 @@ impl ECC {
                 (unit * *p).generate_swaps().map(|(a,b)| Instr(*SWAP, smallvec::smallvec![a, b]))
             ).collect_vec()
         })
+    }
+    pub fn simplify_permute(self) -> Self {
+        let unit = self[0].1.inv();
+        ECC(self.0.into_iter().map(|(instrs, p)| {
+            (instrs, unit * p)
+        }).collect())
+    }
+    pub fn simplify(self) -> Self {
+        let mut map = DenseIndexMap::new();
+        self.simplify_permute().0.into_iter().map(|(instrs, p)| {
+            let instrs = instrs.into_iter().map(|instr| instr.reindex(&mut map)).collect();
+            (instrs, p.reindex(&mut map))
+        }).collect::<Vec<_>>().into()
     }
 }
 
@@ -46,7 +59,7 @@ impl ECC {
 
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
 #[pyo3::pyclass(eq, str)]
-#[derive(Debug, Deref, DerefMut, Index, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Deref, DerefMut, Index, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct ECCs {
     #[deref]
     #[deref_mut]
@@ -83,16 +96,16 @@ impl ECCs {
 #[pyo3_stub_gen::derive::gen_stub_pymethods]
 #[pyo3::pymethods]
 impl ECCs {
-    #[staticmethod]
-    pub fn generate(
-        nqubits: usize,
-        gates: Vec<Gate>,
-        max_size: usize,
-    ) -> ECCs {
-        let evaluator = Evaluator::from_random(nqubits, &mut rand::rng());
-        CircuitECCs::generate(&evaluator, gates, max_size).simplify()
-    }
-    pub fn dump_quartz(&self, filepath: String) -> pyo3::PyResult<()> {
+    // #[staticmethod]
+    // pub fn generate(
+    //     nqubits: usize,
+    //     gates: Vec<Gate>,
+    //     max_size: usize,
+    // ) -> ECCs {
+    //     let evaluator = Evaluator::from_random(nqubits, &mut rand::rng());
+    //     RawECCs::generate(&evaluator, gates, max_size).simplify()
+    // }
+    fn dump_quartz(&self, filepath: String) -> pyo3::PyResult<()> {
         use std::fs::File;
 
         let quartz_data = self.as_quartz();
@@ -102,6 +115,33 @@ impl ECCs {
         serde_json::to_writer(file, &quartz_data)
             .map_err(|e| pyo3::PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Failed to write JSON: {}", e)))?;
         
+        Ok(())
+    }
+
+    #[staticmethod]
+    fn from_postcard(filepath: String) -> pyo3::PyResult<Self> {
+        use std::fs::File;
+        use std::io::BufReader;
+
+        let file = File::open(filepath)
+            .map_err(|e| pyo3::PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Failed to open file: {}", e)))?;
+        let reader = BufReader::new(file);
+        let mut buffer : [u8; 8192] = [0; 8192];
+        let eccs: ECCs = postcard::from_io((reader, &mut buffer)).map(|a| a.0)
+            .map_err(|e| pyo3::PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Failed to read postcard data: {}", e)))?;
+        Ok(eccs)
+    }
+
+    fn dump_postcard(&self, filepath: String) -> pyo3::PyResult<()> {
+        use std::fs::File;
+        use std::io::BufWriter;
+
+        let file = File::create(filepath)
+            .map_err(|e| pyo3::PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Failed to create file: {}", e)))?;
+        let writer = BufWriter::new(file);
+
+        postcard::to_io(self, writer)
+            .map_err(|e| pyo3::PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Failed to write postcard data: {}", e)))?;
         Ok(())
     }
     #[pyo3(name="check")]
@@ -116,6 +156,12 @@ impl ECCs {
     #[pyo3(name="to_list")]
     pub fn to_list_py(&self) -> Vec<ECC> {
         self.eccs.clone()
+    }
+    pub fn filter_single(&self) -> ECCs {
+        ECCs {
+            eccs: self.eccs.iter().filter(|ecc| ecc.len() > 1).cloned().collect(),
+            nqubits: self.nqubits,
+        }
     }
 }
 

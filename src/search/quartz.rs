@@ -36,7 +36,7 @@ fn ecc_to_json(ecc: Vec<Vec<Instr>>) -> Vec<Value> {
     let ecc = ecc.iter().map(|list| {
         // println!("   {}", list.iter().join_option(" ", "", ""));
         let mut largest_qubit = 0;
-        let mut instrs = list.iter().map(|Instr(g, inds)| {
+        let instrs = list.iter().map(|Instr(g, inds)| {
             let qs = inds.iter().map(|q| format!("Q{q}")).collect_vec();
             largest_qubit = largest_qubit.max(*inds.iter().max().unwrap_or(&0));
             json!([g.name(), qs, qs])

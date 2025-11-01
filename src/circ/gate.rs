@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, hash::Hasher};
+use std::{cell::RefCell, collections::HashMap, hash::Hasher, sync::LazyLock};
 
 use either::Either;
 use nalgebra::DMatrix;
@@ -9,6 +9,7 @@ use pyo3::PyResult;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use serde::ser::SerializeStruct;
 use serde_json::Value;
+use spin::RwLock;
 
 use crate::{
     circ::{param::{evaluate_with_pi, NumericError}, Argument, Instr, Instruction},
@@ -51,9 +52,7 @@ impl GateData {
     }
 }
 
-thread_local! {
-    static INSTRUCTION_SET: RefCell<HashMap<u64, GateData, BuildNoHashHasher<u64>>> = RefCell::new(Default::default());
-}
+static INSTRUCTION_SET: LazyLock<spin::RwLock<HashMap<u64, GateData, BuildNoHashHasher<u64>>>> = LazyLock::new(|| RwLock::new(Default::default()));
 
 #[gen_stub_pyclass]
 #[pyo3::pyclass(eq, frozen, hash, str)]
@@ -93,39 +92,38 @@ impl Gate {
         };
         let hash_value = gate_data.hash_value();
 
-        INSTRUCTION_SET.with(|set| {
-            let mut set = set.borrow_mut();
-            match set.entry(hash_value) {
-                std::collections::hash_map::Entry::Occupied(_) => (),
-                std::collections::hash_map::Entry::Vacant(vacant_entry) => {
-                    vacant_entry.insert(gate_data);
-                }
+        let mut set = INSTRUCTION_SET.write();
+        match set.entry(hash_value) {
+            std::collections::hash_map::Entry::Occupied(_) => (),
+            std::collections::hash_map::Entry::Vacant(vacant_entry) => {
+                vacant_entry.insert(gate_data);
             }
-        });
+        }
 
         Gate(hash_value)
     }
 
     pub fn name(&self) -> String {
-        INSTRUCTION_SET.with(|set| set.borrow()[&self.0].name.clone())
+        INSTRUCTION_SET.read()[&self.0].name.clone()
     }
     pub fn params(&self) -> Vec<String> {
-        INSTRUCTION_SET.with(|set| set.borrow()[&self.0].params.clone())
+        INSTRUCTION_SET.read()[&self.0].params.clone()
     }
 
     pub fn matrix<T>(&self, f: impl FnOnce(&DMatrix<Complex64>) -> T) -> T {
-        INSTRUCTION_SET.with(|set| f(&set.borrow()[&self.0].matrix))
+        f(&INSTRUCTION_SET.read()[&self.0].matrix)
     }
     pub fn data<T>(&self, f: impl FnOnce(&GateData) -> T) -> T {
-        INSTRUCTION_SET.with(|set| f(&set.borrow()[&self.0]))
+        f(&INSTRUCTION_SET.read()[&self.0])
     }
 
     pub fn nqargs(&self) -> usize {
-        INSTRUCTION_SET.with(|set| set.borrow()[&self.0].matrix.nrows().trailing_zeros() as usize)
+        INSTRUCTION_SET.read()[&self.0].matrix.nrows().trailing_zeros() as usize
     }
 
     pub fn adjoint(&self) -> Gate {
-        match INSTRUCTION_SET.with(|set| set.borrow()[&self.0].adjoint.clone()) {
+        let gate = { INSTRUCTION_SET.read()[&self.0].adjoint.clone() };
+        match gate {
             Some(adjoint) => adjoint,
             None => {
                 let gate = Gate::new(
@@ -133,13 +131,19 @@ impl Gate {
                     self.params(),
                     self.matrix(|m| m.adjoint())
                 );
-                INSTRUCTION_SET.with(|set| set.borrow_mut().get_mut(&self.0).unwrap().adjoint = Some(gate));
+                INSTRUCTION_SET.write().get_mut(&self.0).unwrap().adjoint = Some(gate);
                 gate
             }
         }
     }
     pub fn instr(&self, qargs: impl IntoIterator<Item=u8>) -> Instr {
         Instr(self.clone(), qargs.into_iter().collect())
+    }
+}
+
+impl Default for Gate {
+    fn default() -> Self {
+        gates::I.clone()
     }
 }
 
@@ -160,11 +164,16 @@ impl Gate {
             "H" => Some(*gates::H),
             "X" => Some(*gates::X),
             "Z" => Some(*gates::Z),
+            "Y" => Some(*gates::Y),
             "T" => Some(*gates::T),
             "TDG" => Some(*gates::TDG),
             "S" => Some(*gates::S),
             "SDG" => Some(*gates::SDG),
             "CX" => Some(*gates::CX),
+            "CY" => Some(*gates::CY),
+            "CZ" => Some(*gates::CZ),
+            "CS" => Some(*gates::CS),
+            "CSDG" => Some(*gates::CSDG),
             "SWAP" => Some(*gates::SWAP),
             _ => None,
         }

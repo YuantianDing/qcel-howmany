@@ -5,6 +5,7 @@ use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 
 use crate::circ::Gate;
 use crate::identity::idcircuit::IdentityCirc;
+use crate::utils::DenseIndexMap;
 use crate::{circ::Instr, groups::permutation::Permut32};
 use std::cmp::Ordering;
 use std::fmt;
@@ -17,7 +18,9 @@ use std::ops::{Add, AddAssign};
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Index, serde::Serialize, serde::Deserialize)]
 pub struct Circ {
     #[index]
+    #[pyo3(get)]
     pub instrs: Vec<Instr>,
+    #[pyo3(get)]
     pub perm: Permut32,
 }
 
@@ -36,6 +39,14 @@ impl Ord for Circ {
 }
 
 impl Circ {
+    pub fn reindex_qubits(&mut self, map: &mut DenseIndexMap) {
+        for instr in &mut self.instrs {
+            for q in &mut instr.1 {
+                *q = map.get_or_insert(*q as usize) as u8;
+            }
+        }
+        self.perm = self.perm.reindex(map);
+    }
     pub fn affected_qubits(&self) -> impl Iterator<Item = u8> + '_ {
         let instrs_qubits = self.instrs.iter().flat_map(|i| i.1.iter().copied());
         let perm_qubits = (0u8..self.nqubits()).filter(move |&i| self.perm.at(i) != i);
@@ -45,10 +56,10 @@ impl Circ {
         (0..self.instrs.len())
             .filter(move |&i| self.instrs[i].1.contains(&0))
             .map(move |i| {
-                self.rotate(i as isize).reorder_instrs().compact_circuit()
+                self.rotate(i as isize).reorder_instrs().compact_qubits()
             })
     }
-    pub fn compact_circuit(mut self) -> Self {
+    pub fn compact_qubits(mut self) -> Self {
         if self.instrs.is_empty() {
             return self;
         }
@@ -79,7 +90,7 @@ impl Circ {
     }
 
     pub fn rotate_representative(self) -> IdentityCirc {
-        let circ = self.compact_circuit().remove_swaps();
+        let circ = self.compact_qubits().remove_swaps();
         if circ.len() == 0 {
             return IdentityCirc::unchecked(circ);
         }
@@ -91,7 +102,7 @@ impl Circ {
     }
 
     pub fn representative(self) -> Self {
-        let circ = self.compact_circuit().remove_swaps();
+        let circ = self.compact_qubits().remove_swaps();
         if circ.is_empty() {
             return circ;
         }
@@ -99,13 +110,13 @@ impl Circ {
         Permut32::all(circ.nqubits())
             .iter()
             .cloned()
-            .map(|p| circ.permut(p).reorder_instrs().compact_circuit())
+            .map(|p| circ.permut(p).reorder_instrs().compact_qubits())
             .min()
             .unwrap()
     }
 
     pub fn representative_with_perm(self) -> (Self, Permut32) {
-        let circ = self.compact_circuit().remove_swaps();
+        let circ = self.compact_qubits().remove_swaps();
         if circ.is_empty() {
             return (circ, Permut32::identity(0));
         }
@@ -113,7 +124,7 @@ impl Circ {
         Permut32::all(circ.nqubits())
             .iter()
             .cloned()
-            .map(|p| (circ.permut(p).reorder_instrs().compact_circuit(), p))
+            .map(|p| (circ.permut(p).reorder_instrs().compact_qubits(), p))
             .min()
             .unwrap()
     }

@@ -1,7 +1,10 @@
 use std::{cmp::Ordering, vec};
 
+use itertools::Itertools;
 use pyo3::{types::{PyAnyMethods, PyTuple}, Bound, FromPyObject, IntoPyObject, Py, PyErr};
 use pyo3_stub_gen::PyStubType;
+
+use crate::utils::DenseIndexMap;
 
 
 const SORTING_NETWORKS : [&[(u8, u8)]; 9] = [
@@ -53,6 +56,17 @@ impl Permut32 {
         result.set_len(len);
         return result;
     }
+    pub fn reindex(&self, map: &mut DenseIndexMap) -> Self {
+        Permut32::from_mapping_unchecked(
+            self.mappings().filter_map(|(a,b)| {
+                if a != b {
+                    Some((map.get_or_insert(a as usize) as u8, map.get_or_insert(b as usize) as u8))
+                } else {
+                    map.get(a as usize).map(|a_new| (a_new as u8, a_new as u8))
+                }
+            })
+        )
+    }
     pub fn from_iter(perm: impl Iterator<Item=u8>) -> Self {
         let mut len = 0;
         let mut result = Permut32::new();
@@ -75,6 +89,17 @@ impl Permut32 {
             len += 1;
         }
         result.set_len(len);
+        return result;
+    }
+    pub fn from_mapping_unchecked(perm: impl Iterator<Item=(u8, u8)>) -> Self {
+        let mut result = Permut32::new();
+        let mut len = 0u8;
+        for (a, b) in perm {
+            result.set(a, b);
+            len = len.max(a + 1).max(b + 1);
+        }
+        result.set_len(len);
+        assert!(result.iter().all_unique());
         return result;
     }
     pub fn from_iter_with_ext(len: u8, mut perm: impl Iterator<Item=u8>) -> Self {
@@ -208,6 +233,10 @@ impl Permut32 {
         }
         true
     }
+    pub fn mappings(&self) -> impl Iterator<Item=(u8, u8)> {
+        self.iter().enumerate().map(|(i, p)| (i as u8, p))
+    }
+
 }
 
 #[derive(Debug, Clone, Copy)]

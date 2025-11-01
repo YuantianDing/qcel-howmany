@@ -163,3 +163,36 @@ impl<'a, T: Display, Iter: Iterator<Item=T> + Clone, Sep: Display, Start: Displa
         }
     }
 }
+
+pub struct DenseIndexMap {
+    pub perm: Vec<Option<usize>>,
+    pub count: usize,
+}
+
+impl DenseIndexMap {
+    pub fn new() -> Self {
+        Self {
+            perm: Vec::new(),
+            count: 0,
+        }
+    }
+
+    pub fn get_or_insert(&mut self, index: usize) -> usize {
+        self.perm.resize(index + 1, None);
+        
+        if let Some(id) = self.perm[index] {
+            return id;
+        } else {
+            self.perm[index] = Some(self.count);
+            self.count += 1;
+            return self.count - 1;
+        }
+    }
+    pub fn get(&self, index: usize) -> Option<usize> {
+        if index < self.perm.len() {
+            self.perm[index]
+        } else {
+            None
+        }
+    }
+}

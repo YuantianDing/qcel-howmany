@@ -96,7 +96,7 @@ impl IdentityCirc {
                 }
             }
         }
-        assert!(!qargs_coverage.iter().any(|&x| x == usize::MAX));
+        assert!(!qargs_coverage.iter().any(|&x| x == usize::MAX), "{self} {qargs_coverage:?}");
         qargs_coverage
     }
 
@@ -122,7 +122,7 @@ impl IdentityCirc {
                 }
             }
         }
-        assert!(!qargs_coverage.iter().any(|&x| x == usize::MAX));
+        assert!(!qargs_coverage.iter().any(|&x| x == usize::MAX), "a {self} {rotated_circ:?} {gate_id}");
         qargs_coverage
     }
     pub fn check(&self) -> bool {
@@ -135,7 +135,7 @@ impl IdentityCirc {
         state1.apply_permutation(self.perm);
         state1.normalize_arg();
         
-        assert!(state1.approx_eq(&state2, 1e-8), "IdentityCirc::check: circuit is not identity {:?} {:?}", state1, state2);
+        // assert!(state1.approx_eq(&state2, 1e-8), "IdentityCirc::check: circuit is not identity {:?} {:?}", state1, state2);
         state1.approx_eq(&state2, 1e-8)
     }
 
@@ -360,11 +360,11 @@ impl<'a> IdentitySubcircuit<'a> {
             .filter(|subcirc| {
                 // println!("Checking subcircuit: {:?} {:?}", subcirc.inputs().map(move |a| (a.instr_id, a.qargs_idx)).collect_vec(), subcirc.outputs().map(move |a| (a.instr_id, a.qargs_idx)).collect_vec());
                 // println!("Checking subcircuit: {} {} {} {}", subcirc, subcirc.is_connected(), subcirc.is_convex(), subcirc.split().is_some());
-                subcirc.is_connected() && subcirc.is_convex() && subcirc.split().is_some()
+                subcirc.is_convex() && subcirc.is_connected() && subcirc.split().is_some()
             })
     }
 
-    pub fn subcircuit_splits(
+    pub fn subcircuit_splits_n(
         circuit: &'a IdentityCirc,
         n: usize,
     ) -> impl Iterator<Item = (Circ, Circ)> + 'a {
@@ -376,7 +376,25 @@ impl<'a> IdentitySubcircuit<'a> {
                     gates[i] = true;
                 }
                 let subcirc = IdentitySubcircuit { circuit, gates };
-                if subcirc.is_connected() && subcirc.is_convex() {
+                if subcirc.is_convex() && subcirc.is_connected() {
+                    subcirc.split()
+                } else {
+                    None
+                }
+            })
+    }
+    pub fn subcircuit_splits(
+        circuit: &'a IdentityCirc
+    ) -> impl Iterator<Item = (Circ, Circ)> + 'a {
+        COMBINATIONS[circuit.len()]
+            .iter()
+            .filter_map(move |gate_indices| {
+                let mut gates = vec![false; circuit.len()];
+                for i in gate_indices {
+                    gates[*i as usize] = true;
+                }
+                let subcirc = IdentitySubcircuit { circuit, gates };
+                if subcirc.is_convex() && subcirc.is_connected() {
                     subcirc.split()
                 } else {
                     None
@@ -416,7 +434,7 @@ impl<'a> IdentitySubcircuit<'a> {
 lazy_static::lazy_static!(
     static ref COMBINATIONS : Vec<Vec<Vec<u8>>> = {
         let mut combinations: Vec<Vec<Vec<u8>>> = Vec::new();
-        for n in 0u8..=16 {
+        for n in 0u8..=18 {
             combinations.push((0u8..=(n / 2 + 1)).flat_map(|k| (0u8..n).combinations(k as usize)).collect_vec());
         }
         combinations

@@ -23,6 +23,7 @@ def format_number(num: float):
             return f"{n}pi/{d}"
     return f"{num:.6g}"
 
+DEFAULT_GATES = ["H", "X", "Z", "Y", "T", "TDG", "S", "SDG", "CX", "CY", "CZ", "CS", "CSDG", "SWAP"]
 
 def Gate(instr: str | qiskit.circuit.Instruction):
     if type(instr) == str:
@@ -68,4 +69,6 @@ Instr = inner.Instr
 StateVec = inner.StateVec
 Circ = inner.Circ
 IdentityCirc = inner.IdentityCirc
-IdentitySet = inner.IdentitySet
+IdentityProver = inner.IdentityProver
+RawECCs = inner.RawECCs
+Evaluator = inner.Evaluator

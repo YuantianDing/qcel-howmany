@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::{hash_map::Entry, BTreeSet, HashMap, VecDeque}};
+use std::{cmp::Ordering, collections::{hash_map::Entry, BTreeSet, HashMap, VecDeque}, iter};
 
 use derive_more::{Deref, Debug, Display};
 use itertools::Itertools;
@@ -9,7 +9,7 @@ use smallvec::{smallvec, SmallVec};
 
 
 use crate::{
-    circ::{gates::SWAP, Gate, Instruction, InstructionSliceExt}, groups::permutation::Permut32, circ::Instr, state::StateVec, utils::{AliasList, JoinOptionIter}
+    circ::{gates::SWAP, Gate, Instr, Instruction, InstructionSliceExt}, groups::permutation::Permut32, search::ECC, state::StateVec, utils::{AliasList, JoinOptionIter}
 };
 use linear_map::set::LinearSet;
 
@@ -74,7 +74,8 @@ impl CircuitECC {
     }
 }
 
-
+#[gen_stub_pyclass]
+#[pyo3::pyclass(eq)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Evaluator {
     pub initial_state: StateVec,
@@ -91,10 +92,6 @@ impl Evaluator {
 
         Self { initial_state, backtrack_state }
     }
-    pub fn nqubits(&self) -> usize {
-        self.initial_state.nqubits()
-    }
-
     pub fn evaluate(&self, instrs: &[Instr]) -> (StateVec, Permut32, Permut32) {
         let mut state = self.initial_state.clone();
         let mut mask = 0u8;
@@ -172,17 +169,37 @@ impl Evaluator {
         }
         result
     }
-    
 }
+
+#[gen_stub_pymethods]
+#[pyo3::pymethods]
+impl Evaluator {
+    #[new]
+    fn random_py(nqubits: usize) -> Self {
+        let mut rng = rand::rng();
+        Self::from_random(nqubits, &mut rng)
+    }
+    pub fn nqubits(&self) -> usize {
+        self.initial_state.nqubits()
+    }
+
+    #[pyo3(name="evaluate")]
+    pub fn evaluate_py(&self, instrs: Vec<Instr>) -> (StateVec, Permut32, Permut32) {
+        self.evaluate(&instrs)
+    }
+}
+
+#[gen_stub_pyclass]
+#[pyo3::pyclass(name="RawECCs")]
 #[derive(Clone, Deref)]
-pub struct CircuitECCs {
+pub struct RawECCs {
     #[deref]
     inner: HashMap<u64, CircuitECC, BuildNoHashHasher<u64>>,
     pub nqubits: usize,
 }
 
 
-impl std::ops::Drop for CircuitECCs {
+impl std::ops::Drop for RawECCs {
     fn drop(&mut self) {
         for (_, instrs) in self.inner.iter_mut() {
             for triple in instrs.circuits.iter_mut() {
@@ -207,15 +224,7 @@ fn circuit_get_surface_gates<'a>(circ: impl Iterator<Item = &'a Instr> + Clone) 
     })) 
 }
 
-impl CircuitECCs {
-    pub fn new(evaluator: &Evaluator) -> Self {
-        let mut map = CircuitECCs {
-            inner: Default::default(),
-            nqubits: evaluator.nqubits(),
-        };
-        map.inner.insert(evaluator.backtrack_state.hash_value(), CircuitECC::root(evaluator.nqubits()));
-        map
-    }
+impl RawECCs {
     fn add_entry(&mut self, hash_value: u64, front_perm: Permut32, back_perm: Permut32, circ: &AliasList<Instr>, instr_vec: &[Instr]) -> Option<AliasList<Instr>> {
         let instr = instr_vec.last().unwrap().clone();
         let front_gates_iter = circuit_get_surface_gates(instr_vec.iter())
@@ -256,8 +265,38 @@ impl CircuitECCs {
             }
         }
     }
-    fn search_naive(evaluator: &Evaluator, instrs: Vec<Instr>, max_size: usize) -> CircuitECCs {
-        let mut map = CircuitECCs::new(evaluator);
+    pub fn find_equivalents(&self, evaluator: &Evaluator, instrs: &[Instr]) -> Option<ECC> {
+        let (backstate, front_perm, back_perm) = evaluator.evaluate(instrs);
+
+        self.inner.get(&backstate.hash_value()).map(|ecc| {
+            ECC(ecc.circuits
+                .iter()
+                .map(|triple| CircTriple{
+                    front_perm: triple.front_perm * front_perm.inv(),
+                    back_perm: back_perm.inv() * triple.back_perm,
+                    circ: triple.circ.clone(),
+                }.simplify())
+                .filter(|(c, p)| c != instrs || *p != Permut32::identity(evaluator.nqubits() as u8))
+                .collect_vec())
+        }).and_then(|ecc| if ecc.0.is_empty() { None } else { Some(ecc) })
+    }
+}
+
+#[gen_stub_pymethods]
+#[pyo3::pymethods]
+impl RawECCs {
+    #[new]
+    pub fn new(evaluator: &Evaluator) -> Self {
+        let mut map = RawECCs {
+            inner: Default::default(),
+            nqubits: evaluator.nqubits(),
+        };
+        map.inner.insert(evaluator.backtrack_state.hash_value(), CircuitECC::root(evaluator.nqubits()));
+        map
+    }
+    #[staticmethod]
+    fn search_naive(evaluator: &Evaluator, instrs: Vec<Instr>, max_size: usize) -> (RawECCs, [usize; 3]) {
+        let mut map = RawECCs::new(evaluator);
         let nqubits = evaluator.nqubits() as u8;
         
         let mut queue: VecDeque<AliasList<Instr>> = VecDeque::new();
@@ -295,10 +334,11 @@ impl CircuitECCs {
             }
             counters[0] += 1;
         }
-        map
+        (map, counters)
     }
-    fn search(evaluator: &Evaluator, instrs: Vec<Instr>, max_size: usize) -> CircuitECCs {
-        let mut map = CircuitECCs::new(evaluator);
+    #[staticmethod]
+    fn search(evaluator: &Evaluator, instrs: Vec<Instr>, max_size: usize) -> (RawECCs, [usize; 3]) {
+        let mut map = RawECCs::new(evaluator);
         
         let mut queue: VecDeque<AliasList<Instr>> = VecDeque::new();
         queue.push_back(AliasList::nil());
@@ -331,20 +371,32 @@ impl CircuitECCs {
             }
             counters[0] += 1;
         }
-        map
+        (map, counters)
     }
 
-    pub fn simplify(self) -> super::ECCs {
+    pub fn simplify(&self) -> super::ECCs {
         super::ECCs {
             eccs: self.inner.values().map(|a| a.simplify()).collect(),
             nqubits: self.nqubits,
         }
     }
+    #[staticmethod]
     pub fn generate(
         evaluator: &Evaluator,
-        gates: Vec<Gate>,
+        mut gates: Vec<Gate>,
         max_size: usize,
-    ) -> CircuitECCs {
+    ) -> (RawECCs, [usize; 3]) {
+        let adjoint_gates = gates.iter().map(|g| g.adjoint()).collect_vec();
+
+        for g in adjoint_gates {
+            if !gates.contains(&g) {
+                gates.push(g);
+            }
+        }
+        
+        gates.sort_by_key(|g| (g.nqargs(), g.name()));
+        
+
         let mut instructions: Vec<Instr> = Vec::new();
 
         for instr in gates {
@@ -360,13 +412,24 @@ impl CircuitECCs {
         }
 
         instructions.sort_by_key(|a| a.largest_qubit());
-        CircuitECCs::search(&evaluator, instructions, max_size)
+        RawECCs::search(&evaluator, instructions, max_size)
     }
+    #[staticmethod]
     pub fn generate_naive(
         evaluator: &Evaluator,
-        gates: Vec<Gate>,
+        mut gates: Vec<Gate>,
         max_size: usize,
-    ) -> CircuitECCs {
+    ) -> (RawECCs, [usize; 3]) {
+        let adjoint_gates = gates.iter().map(|g| g.adjoint()).collect_vec();
+
+        for g in adjoint_gates {
+            if !gates.contains(&g) {
+                gates.push(g);
+            }
+        }
+        
+        gates.sort_by_key(|g| (g.nqargs(), g.name()));
+
         let mut instructions: Vec<Instr> = Vec::new();
 
         for instr in gates {
@@ -382,7 +445,30 @@ impl CircuitECCs {
         }
 
         instructions.sort_by_key(|a| a.largest_qubit());
-        CircuitECCs::search_naive(&evaluator, instructions, max_size)
+        RawECCs::search_naive(&evaluator, instructions, max_size)
     }
+
+    #[pyo3(name="find_equivalents")]
+    fn find_equivalents_py(&self, evaluator: &Evaluator, instrs: Vec<Instr>) -> Option<ECC> {
+        self.find_equivalents(evaluator, &instrs)
+    }
+
     
+    // for i in 0..instrs.len() {
+    //     for j in (i+1)..=instrs.len() {
+    //         let (backstate, front_perm, back_perm) = evaluator.evaluate(&instrs[i..j]);
+    //         println!("{i}..{j} {front_perm} {} {back_perm}", instrs[i..j].iter().join_option(" ", "", ""));
+    //         eccs.get(&backstate.hash_value()).map(|ecc| {
+    //             for c in ecc.circuits.iter() {
+    //                 println!("\t{}", c);
+    //             }
+    //             println!("\t{}", CircTriple {
+    //                 circ: instrs[i..j].iter().cloned().collect(),
+    //                 front_perm,
+    //                 back_perm,
+    //             });
+    //         });
+    //     }
+    // }
+
 }
