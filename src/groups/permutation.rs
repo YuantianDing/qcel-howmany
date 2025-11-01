@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, vec};
+use std::{cmp::Ordering, sync::LazyLock, vec};
 
 use itertools::Itertools;
 use pyo3::{types::{PyAnyMethods, PyTuple}, Bound, FromPyObject, IntoPyObject, Py, PyErr};
@@ -27,15 +27,14 @@ fn all_permutation(len: u8) -> Vec<Permut32> {
         .collect::<Vec<_>>()
 }
 
-lazy_static::lazy_static!(
-    pub static ref ALL_PERMUTATIONS: Vec<Vec<Permut32>> = {
-        let mut result = Vec::with_capacity(9);
-        for len in 0..=8 {
-            result.push(all_permutation(len));
-        }
-        result
-    };
-);
+
+pub static ALL_PERMUTATIONS: LazyLock<Vec<Vec<Permut32>>> = LazyLock::new(|| {
+    let mut result = Vec::with_capacity(9);
+    for len in 0..=8 {
+        result.push(all_permutation(len));
+    }
+    result
+});
 
 #[derive(derive_more::Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
 #[debug("{self}")]

@@ -1,5 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, hash::Hasher, sync::LazyLock};
 
+use derive_more::Display;
 use either::Either;
 use nalgebra::DMatrix;
 use nohash_hasher::BuildNoHashHasher;
@@ -7,22 +8,23 @@ use num_complex::Complex64;
 use numpy::{PyArray2, PyArrayLike2, ToPyArray};
 use pyo3::PyResult;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
-use serde::ser::SerializeStruct;
+use serde::{Deserialize, Serialize, ser::SerializeStruct};
 use serde_json::Value;
 use spin::RwLock;
 
 use crate::{
-    circ::{param::{evaluate_with_pi, NumericError}, Argument, Instr, Instruction},
+    circ::{Argument, Instr32, Instruction, gates::initial_gates, param::{NumericError, evaluate_with_pi}},
     defs::cmplx64mat_to_fixpoint,
     utils::JoinOptionIter,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Display)]
+#[display("{}{}", self.name, self.params.iter().join_option(", ", "(", ")"))]
 pub struct GateData {
     pub name: String,
     pub params: Vec<String>,
     pub matrix: DMatrix<Complex64>,
-    pub adjoint: Option<Gate>,
+    pub adjoint: Option<Gate16>,
 }
 
 impl PartialEq for GateData {
@@ -45,6 +47,14 @@ impl std::hash::Hash for GateData {
 }
 
 impl GateData {
+    pub fn new(name: String, params: Vec<String>, matrix: DMatrix<Complex64>) -> Self {
+        Self {
+            name,
+            params,
+            matrix,
+            adjoint: None,
+        }
+    }
     pub fn hash_value(&self) -> u64 {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         std::hash::Hash::hash(&self, &mut hasher);
@@ -52,32 +62,38 @@ impl GateData {
     }
 }
 
-static INSTRUCTION_SET: LazyLock<spin::RwLock<HashMap<u64, GateData, BuildNoHashHasher<u64>>>> = LazyLock::new(|| RwLock::new(Default::default()));
+static INSTRUCTION_SET: LazyLock<spin::RwLock<Vec<GateData>>> = LazyLock::new(|| RwLock::new(initial_gates()));
 
 #[gen_stub_pyclass]
 #[pyo3::pyclass(eq, frozen, hash, str)]
 #[derive(
-    derive_more::Debug, Clone, Copy, derive_more::Display, PartialEq, Eq, Hash, serde::Deserialize, serde::Serialize, PartialOrd, Ord
+    derive_more::Debug, Clone, Copy, derive_more::Display, PartialEq, Eq, Ord, PartialOrd, Hash
 )]
 #[debug("Gate({} -> {}{})", self.0, self.name(), self.params().iter().join_option(", ", "(", ")"))]
 #[display("{}{}", self.name(), self.params().iter().join_option(", ", "(", ")"))]
-pub struct Gate(u64);
+#[pyo3(name = "Gate")]
+pub struct Gate16(u16);
 
-// impl PartialOrd for Gate {
-//     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-//         self.name().partial_cmp(&other.name()).or_else(||
-//             self.0.partial_cmp(&other.0))
-//     }
-// }
+impl Serialize for Gate16 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        format!("{}", self).serialize(serializer)
+    }
+}
 
-// impl Ord for Gate {
-//     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-//         if self.0 == other.0 { return std::cmp::Ordering::Equal; }
-//         self.data(|s| other.data(|o| s.name.cmp(&o.name))).then_with(|| self.0.cmp(&other.0))
-//     }
-// }
+impl<'de> Deserialize<'de> for Gate16 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Gate16::from_name(&String::deserialize(deserializer)?).expect("Failed to deserialize Gate8"))
+    }
+}
 
-impl Gate {
+
+impl Gate16 {
     pub fn new(name: String, params: Vec<String>, matrix: DMatrix<Complex64>) -> Self {
         assert!(
             matrix.nrows().is_power_of_two(),
@@ -93,55 +109,53 @@ impl Gate {
         let hash_value = gate_data.hash_value();
 
         let mut set = INSTRUCTION_SET.write();
-        match set.entry(hash_value) {
-            std::collections::hash_map::Entry::Occupied(_) => (),
-            std::collections::hash_map::Entry::Vacant(vacant_entry) => {
-                vacant_entry.insert(gate_data);
-            }
+        if let Some(idx) = set.iter() .position(|g| g.hash_value() == hash_value) {
+            Gate16(idx as u16)
+        } else {
+            set.push(gate_data);
+            Gate16((set.len() - 1) as u16)
         }
-
-        Gate(hash_value)
     }
 
     pub fn name(&self) -> String {
-        INSTRUCTION_SET.read()[&self.0].name.clone()
+        INSTRUCTION_SET.read()[self.0 as usize].name.clone()
     }
     pub fn params(&self) -> Vec<String> {
-        INSTRUCTION_SET.read()[&self.0].params.clone()
+        INSTRUCTION_SET.read()[self.0 as usize].params.clone()
     }
 
     pub fn matrix<T>(&self, f: impl FnOnce(&DMatrix<Complex64>) -> T) -> T {
-        f(&INSTRUCTION_SET.read()[&self.0].matrix)
+        f(&INSTRUCTION_SET.read()[self.0 as usize].matrix)
     }
     pub fn data<T>(&self, f: impl FnOnce(&GateData) -> T) -> T {
-        f(&INSTRUCTION_SET.read()[&self.0])
+        f(&INSTRUCTION_SET.read()[self.0 as usize])
     }
 
     pub fn nqargs(&self) -> usize {
-        INSTRUCTION_SET.read()[&self.0].matrix.nrows().trailing_zeros() as usize
+        INSTRUCTION_SET.read()[self.0 as usize].matrix.nrows().trailing_zeros() as usize
     }
 
-    pub fn adjoint(&self) -> Gate {
-        let gate = { INSTRUCTION_SET.read()[&self.0].adjoint.clone() };
+    pub fn adjoint(&self) -> Gate16 {
+        let gate = { INSTRUCTION_SET.read()[self.0 as usize].adjoint.clone() };
         match gate {
             Some(adjoint) => adjoint,
             None => {
-                let gate = Gate::new(
+                let gate = Gate16::new(
                     self.name() + "†",
                     self.params(),
                     self.matrix(|m| m.adjoint())
                 );
-                INSTRUCTION_SET.write().get_mut(&self.0).unwrap().adjoint = Some(gate);
+                INSTRUCTION_SET.write()[self.0 as usize].adjoint = Some(gate);
                 gate
             }
         }
     }
-    pub fn instr(&self, qargs: impl IntoIterator<Item=u8>) -> Instr {
-        Instr(self.clone(), qargs.into_iter().collect())
+    pub fn instr(&self, qargs: impl IntoIterator<Item=u8>) -> Instr32 {
+        Instr32(self.clone(), qargs.into_iter().collect())
     }
 }
 
-impl Default for Gate {
+impl Default for Gate16 {
     fn default() -> Self {
         gates::I.clone()
     }
@@ -151,7 +165,7 @@ pub mod gates;
 
 #[gen_stub_pymethods]
 #[pyo3::pymethods]
-impl Gate {
+impl Gate16 {
     #[gen_stub(skip)]
     #[new]
     pub fn new_py(name: String, params: Vec<String>, matrix: PyArrayLike2<Complex64>) -> Self {
@@ -160,23 +174,7 @@ impl Gate {
 
     #[staticmethod]
     pub fn from_name(name: &str) -> Option<Self> {
-        match name.to_uppercase().as_str() {
-            "H" => Some(*gates::H),
-            "X" => Some(*gates::X),
-            "Z" => Some(*gates::Z),
-            "Y" => Some(*gates::Y),
-            "T" => Some(*gates::T),
-            "TDG" => Some(*gates::TDG),
-            "S" => Some(*gates::S),
-            "SDG" => Some(*gates::SDG),
-            "CX" => Some(*gates::CX),
-            "CY" => Some(*gates::CY),
-            "CZ" => Some(*gates::CZ),
-            "CS" => Some(*gates::CS),
-            "CSDG" => Some(*gates::CSDG),
-            "SWAP" => Some(*gates::SWAP),
-            _ => None,
-        }
+        INSTRUCTION_SET.read().iter().position(|g| name.starts_with(&g.name) && name == format!("{}", g)).map(|idx| Gate16(idx as u16))
     }
 
     #[getter(name)]
@@ -211,16 +209,16 @@ impl Gate {
     }
     
     #[pyo3(name="adjoint")]
-    pub fn adjoin_py(&self) -> Gate {
+    pub fn adjoin_py(&self) -> Gate16 {
         self.adjoint()
     }
 
     #[pyo3(signature=(*args))]
-    pub fn __call__(&self, args: Either<Vec<u8>, Vec<Argument>>) -> Either<Instr, Instruction> {
+    pub fn __call__(&self, args: Either<Vec<u8>, Vec<Argument>>) -> Either<Instr32, Instruction> {
         match args {
             Either::Left(args) => {
                 assert!(args.len() == self.nqargs(), "Number of arguments not match for gate {}", self);
-                Either::Left(Instr(self.clone(), args.into()))
+                Either::Left(Instr32(self.clone(), args.into_iter().collect()))
             }
             Either::Right(args) => Either::Right(Instruction {
                 gate: self.clone(),

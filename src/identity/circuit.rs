@@ -3,10 +3,10 @@ use num_traits::sign;
 // use petgraph::graph::{DiGraph, NodeIndex};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 
-use crate::circ::Gate;
+use crate::circ::Gate16;
 use crate::identity::idcircuit::IdentityCirc;
 use crate::utils::DenseIndexMap;
-use crate::{circ::Instr, groups::permutation::Permut32};
+use crate::{circ::Instr32, groups::permutation::Permut32};
 use std::cmp::Ordering;
 use std::fmt;
 use std::ops::{Add, AddAssign};
@@ -19,7 +19,7 @@ use std::ops::{Add, AddAssign};
 pub struct Circ {
     #[index]
     #[pyo3(get)]
-    pub instrs: Vec<Instr>,
+    pub instrs: Vec<Instr32>,
     #[pyo3(get)]
     pub perm: Permut32,
 }
@@ -41,7 +41,7 @@ impl Ord for Circ {
 impl Circ {
     pub fn reindex_qubits(&mut self, map: &mut DenseIndexMap) {
         for instr in &mut self.instrs {
-            for q in &mut instr.1 {
+            for q in instr.1.iter_mut() {
                 *q = map.get_or_insert(*q as usize) as u8;
             }
         }
@@ -128,7 +128,7 @@ impl Circ {
             .min()
             .unwrap()
     }
-    pub fn new(instrs: Vec<Instr>, perm: Permut32) -> Self {
+    pub fn new(instrs: Vec<Instr32>, perm: Permut32) -> Self {
         if let Some(max_q) = instrs.iter().flat_map(|i| i.1.iter().copied()).max() {
             assert!(
                 perm.len() > max_q,
@@ -138,7 +138,7 @@ impl Circ {
         Self { instrs, perm }
     }
 
-    pub fn new_no_perm(instrs: Vec<Instr>) -> Self {
+    pub fn new_no_perm(instrs: Vec<Instr32>) -> Self {
         let n = instrs
             .iter()
             .flat_map(|i| i.1.iter().copied())
@@ -186,7 +186,7 @@ impl Circ {
 impl Circ {
     #[new]
     #[pyo3(signature = (instrs, perm=None))]
-    fn new_py(instrs: Vec<Instr>, perm: Option<Permut32>) -> Self {
+    fn new_py(instrs: Vec<Instr32>, perm: Option<Permut32>) -> Self {
         let Some(p) = perm else {
             return Circ::new_no_perm(instrs);
         };
@@ -231,7 +231,7 @@ impl Circ {
                 qregs_map.swap(q1, q2);
             } else {
                 let new_qargs = instr.1.iter().map(|&q| qregs_map[q as usize]).collect();
-                new_instrs.push(Instr(instr.0.clone(), new_qargs));
+                new_instrs.push(Instr32(instr.0.clone(), new_qargs));
             }
         }
         let map_perm = Permut32::from_iter_unchecked(qregs_map.into_iter());
@@ -282,12 +282,12 @@ impl Circ {
         self.instrs.is_empty()
     }
 
-    pub fn instrs_with_swaps(&self) -> Vec<Instr> {
+    pub fn instrs_with_swaps(&self) -> Vec<Instr32> {
         let mut instrs = self.instrs.clone();
         instrs.extend(
             self.perm
                 .generate_swaps()
-                .map(|(a, b)| Instr(*crate::circ::gates::SWAP, smallvec::smallvec![a, b])),
+                .map(|(a, b)| Instr32(*crate::circ::gates::SWAP, [a, b].into_iter().collect())),
         );
         instrs
     }
@@ -309,7 +309,7 @@ impl Circ {
         self.hash(&mut hasher);
         hasher.finish()
     }
-    pub fn __getitem__(&self, idx: isize) -> Instr {
+    pub fn __getitem__(&self, idx: isize) -> Instr32 {
         self[idx.rem_euclid(self.len() as isize) as usize].clone()
     }
 
@@ -353,24 +353,24 @@ mod tests {
     use crate::circ::gates::{CX, H, S, SWAP, T};
     use smallvec::smallvec;
 
-    fn h(q: u8) -> Instr {
-        Instr(*H, smallvec![q])
+    fn h(q: u8) -> Instr32 {
+        Instr32(*H, [q].into_iter().collect())
     }
 
-    fn s(q: u8) -> Instr {
-        Instr(*S, smallvec![q])
+    fn s(q: u8) -> Instr32 {
+        Instr32(*S, [q].into_iter().collect())
     }
 
-    fn t(q: u8) -> Instr {
-        Instr(*T, smallvec![q])
+    fn t(q: u8) -> Instr32 {
+        Instr32(*T, [q].into_iter().collect())
     }
 
-    fn cx(c: u8, t: u8) -> Instr {
-        Instr(*CX, smallvec![c, t])
+    fn cx(c: u8, t: u8) -> Instr32 {
+        Instr32(*CX, [c, t].into_iter().collect())
     }
 
-    fn swap(q1: u8, q2: u8) -> Instr {
-        Instr(*SWAP, smallvec![q1, q2])
+    fn swap(q1: u8, q2: u8) -> Instr32 {
+        Instr32(*SWAP, [q1, q2].into_iter().collect())
     }
 
     #[test]

@@ -4,11 +4,12 @@ use pyo3::Bound;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use rand::{rngs::ThreadRng, Rng};
 use smallvec::SmallVec;
+use core::panic;
 use std::{
     array, cell::{RefCell, UnsafeCell}, cmp::Ordering, collections::BTreeSet, hash::{Hash, Hasher}
 };
 
-use crate::{circ::{Gate, Instr}, defs::{cmplx64_to_fixpoint, f64_percision_repr, F64_PERCISION_EPSILON}, groups::permutation::Permut32, state::indices::qubit_matrix_indices2};
+use crate::{circ::{Gate16, Instr32}, defs::{cmplx64_to_fixpoint, f64_percision_repr, F64_PERCISION_EPSILON}, groups::permutation::Permut32, state::indices::qubit_matrix_indices2};
 
 #[gen_stub_pyclass]
 #[pyo3::pyclass(eq, str)]
@@ -312,7 +313,7 @@ impl StateVec {
         self.set(index, value);
     }
 
-    pub fn __imul__(slf: &Bound<'_, Self>, other: Instr) {
+    pub fn __imul__(slf: &Bound<'_, Self>, other: Instr32) {
         let mut slf = slf.borrow_mut();
         slf.apply(&other.1, other.0);
     }
@@ -360,10 +361,11 @@ impl StateVec {
         }
     }
 
-    pub fn apply(&mut self, qubits: &[u8], gate: Gate) {
+    pub fn apply(&mut self, qubits: &[u8], gate: Gate16) {
         if let Some(f) = gates::GATE_FUNCS.get(&gate) {
             f(self, qubits);
         } else {
+            // panic!("Unsupported gate: {:?}", gate);
             gate.matrix(|matrix| {
                 self.multiply(qubits, &matrix);
             });

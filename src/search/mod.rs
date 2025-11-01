@@ -2,7 +2,7 @@ use derive_more::{Debug, Deref, DerefMut, Display, From, Index, Into};
 use itertools::Itertools;
 use smallvec::SmallVec;
 
-use crate::{circ::{gates::SWAP, Gate, Instr}, groups::permutation::Permut32, search::double_perm_search::{RawECCs, Evaluator}, state::StateVec, utils::{DenseIndexMap, JoinOptionIter}};
+use crate::{circ::{gates::SWAP, Gate16, Instr32}, groups::permutation::Permut32, search::double_perm_search::{RawECCs, Evaluator}, state::StateVec, utils::{DenseIndexMap, JoinOptionIter}};
 
 
 
@@ -12,14 +12,14 @@ pub mod double_perm_search;
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
 #[pyo3::pyclass(eq, str)]
 #[derive(Debug, Deref, DerefMut, Index, From, Into, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-pub struct ECC(pub Vec<(Vec<Instr>, Permut32)>);
+pub struct ECC(pub Vec<(Vec<Instr32>, Permut32)>);
 
 impl ECC {
-    pub fn circuits(&self) -> impl Iterator<Item=Vec<Instr>> + '_ {
+    pub fn circuits(&self) -> impl Iterator<Item=Vec<Instr32>> + '_ {
         let unit = self[0].1.inv();
         self.iter().map(move |(instrs, p)| {
             instrs.iter().cloned().chain(
-                (unit * *p).generate_swaps().map(|(a,b)| Instr(*SWAP, smallvec::smallvec![a, b]))
+                (unit * *p).generate_swaps().map(|(a,b)| Instr32(*SWAP, [a, b].into_iter().collect()))
             ).collect_vec()
         })
     }
@@ -52,7 +52,7 @@ impl std::fmt::Display for ECC {
 #[pyo3::pymethods]
 impl ECC {
     #[pyo3(name="circuits")]
-    fn circuits_py(&self) -> Vec<Vec<Instr>> {
+    fn circuits_py(&self) -> Vec<Vec<Instr32>> {
         self.circuits().collect()
     }
 }
@@ -83,7 +83,7 @@ impl ECCs {
         let state = StateVec::from_random(&mut rand::rng(), self.nqubits as u32);
         self.eccs.iter().filter(move |ecc| !ecc.circuits().into_iter().map(|circ| {
                 let mut s = state.clone();
-                for Instr(g, idx) in circ {
+                for Instr32(g, idx) in circ {
                     s.apply(&idx, g);
                 }
                 s.normalize_arg();

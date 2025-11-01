@@ -5,10 +5,11 @@ use rand;
 use rayon::iter::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
 use serde_json::Value;
 use std::fmt;
+use std::sync::LazyLock;
 
-use crate::circ::Gate;
+use crate::circ::Gate16;
 // use crate::identity::circuit::CircGraph;
-use crate::{circ::Instr, identity::circuit::Circ, state::StateVec};
+use crate::{circ::Instr32, identity::circuit::Circ, state::StateVec};
 use colored::Colorize;
 use itertools::Itertools;
 use std::collections::{HashSet, VecDeque};
@@ -88,7 +89,7 @@ impl IdentityCirc {
             if qargs_coverage.iter().all(|&x| x != usize::MAX) {
                 break;
             }
-            for &q_in_instr in &instr.1 {
+            for &q_in_instr in instr.1.iter() {
                 if let Some(qarg_idx) = qargs.iter().position(|&q| q == q_in_instr) {
                     if qargs_coverage[qarg_idx] == usize::MAX {
                         qargs_coverage[qarg_idx] = (gate_id + 1 + i) % num_instrs;
@@ -114,7 +115,7 @@ impl IdentityCirc {
             if qargs_coverage.iter().all(|&x| x != usize::MAX) {
                 break;
             }
-            for &q_in_instr in &instr.1 {
+            for &q_in_instr in instr.1.iter() {
                 if let Some(qarg_idx) = qargs.iter().position(|&q| q == q_in_instr) {
                     if qargs_coverage[qarg_idx] == usize::MAX {
                         qargs_coverage[qarg_idx] = (gate_id + num_instrs - 1 - i) % num_instrs;
@@ -129,7 +130,7 @@ impl IdentityCirc {
         let mut state1 = StateVec::from_random(&mut rand::rng(), self.nqubits() as u32);
         let mut state2 = state1.clone();
 
-        for Instr(g, qargs) in self.0.instrs.iter() {
+        for Instr32(g, qargs) in self.0.instrs.iter() {
             state1.apply(&qargs, *g);
         }
         state1.apply_permutation(self.perm);
@@ -158,7 +159,7 @@ impl IdentityCirc {
     pub fn __len__(&self) -> usize {
         self.len()
     }
-    pub fn __getitem__(&self, idx: isize) -> Instr {
+    pub fn __getitem__(&self, idx: isize) -> Instr32 {
         self.0[idx.rem_euclid(self.len() as isize) as usize].clone()
     }
     pub fn pythonize<'py>(&self, py: pyo3::Python<'py>) -> pythonize::Result<Bound<'py, pyo3::PyAny>> {
@@ -284,7 +285,7 @@ impl<'a> IdentitySubcircuit<'a> {
     }
 
     pub fn split(&self) -> Option<(Circ, Circ)> {
-        use crate::circ::Instr;
+        use crate::circ::Instr32;
         use crate::groups::permutation::Permut32;
 
         let a = self.gates.iter().position(|&g| g)?;
@@ -292,7 +293,7 @@ impl<'a> IdentitySubcircuit<'a> {
         let mut gates = self.gates.clone();
         gates.rotate_left(a);
 
-        let mut new_circuit_instrs: VecDeque<Instr> = VecDeque::new();
+        let mut new_circuit_instrs: VecDeque<Instr32> = VecDeque::new();
 
         while gates.iter().any(|&g| g) {
             let a = gates.iter().position(|&g| g).unwrap();
@@ -431,19 +432,17 @@ impl<'a> IdentitySubcircuit<'a> {
     }
 }
 
-lazy_static::lazy_static!(
-    static ref COMBINATIONS : Vec<Vec<Vec<u8>>> = {
-        let mut combinations: Vec<Vec<Vec<u8>>> = Vec::new();
-        for n in 0u8..=18 {
-            combinations.push((0u8..=(n / 2 + 1)).flat_map(|k| (0u8..n).combinations(k as usize)).collect_vec());
-        }
-        combinations
-    };
-);
+static COMBINATIONS : LazyLock<Vec<Vec<Vec<u8>>>> = LazyLock::new(|| {
+    let mut combinations: Vec<Vec<Vec<u8>>> = Vec::new();
+    for n in 0u8..=18 {
+        combinations.push((0u8..=(n / 2 + 1)).flat_map(|k| (0u8..n).combinations(k as usize)).collect_vec());
+    }
+    combinations
+});
 
 #[cfg(test)]
 mod tests {
-    use crate::{circ::{gates, Instr}, groups::permutation::Permut32};
+    use crate::{circ::{gates, Instr32}, groups::permutation::Permut32};
 
     use super::*;
     use smallvec::smallvec;

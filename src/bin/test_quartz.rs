@@ -1,7 +1,7 @@
 use std::{fs::File, io::{BufReader, BufWriter}};
 
 use itertools::Itertools;
-use quclif::{circ::{gates::{CX, CY, CZ, H, S, SDG, T, TDG, X, Y, Z}, Instr}, identity::{eccproof::IdentityProver, idcircuit::IdentityCirc}, instr_vec, search::{double_perm_search::{CircTriple, Evaluator, RawECCs}, ECCs}, utils::JoinOptionIter};
+use quclif::{circ::{gates::{CX, CY, CZ, H, S, SDG, T, TDG, X, Y, Z}, Instr32}, identity::{eccproof::IdentityProver, idcircuit::IdentityCirc}, instr_vec, search::{double_perm_search::{CircTriple, Evaluator, RawECCs}, ECCs}, utils::JoinOptionIter};
 
 fn main() {
     let nqubits = 5;

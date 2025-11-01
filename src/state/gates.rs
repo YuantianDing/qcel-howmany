@@ -1,9 +1,9 @@
-use std::{collections::HashMap, f64::consts::PI};
+use std::{collections::HashMap, f64::consts::PI, sync::LazyLock};
 
 use nohash_hasher::BuildNoHashHasher;
 use numpy::Complex64;
 
-use crate::{circ::{gates, Gate}, state::{indices::{qubit_matrix_indices1, qubit_matrix_indices2}, StateVec}};
+use crate::{circ::{gates, Gate16}, state::{indices::{qubit_matrix_indices1, qubit_matrix_indices2}, StateVec}};
 
 
 
@@ -83,21 +83,19 @@ fn perform_cx_gate(state: &mut StateVec, qubits: &[u8]) {
     }
 }
 
-lazy_static::lazy_static!(
-    pub static ref GATE_FUNCS: HashMap<Gate, fn(&mut StateVec, &[u8]), BuildNoHashHasher<u64>> = {
-        let mut m: HashMap<Gate, fn(&mut StateVec, &[u8]), BuildNoHashHasher<u64>> = Default::default();
-        m.insert(*gates::H, perform_h_gate);
-        m.insert(*gates::X, perform_x_gate);
-        m.insert(*gates::Z, perform_z_gate);
-        m.insert(*gates::T, perform_t_gate);
-        m.insert(*gates::TDG, perform_tdg_gate);
-        m.insert(*gates::S, perform_s_gate);
-        m.insert(*gates::SDG, perform_sdg_gate);
-        m.insert(*gates::SWAP, perform_swap_gate);
-        m.insert(*gates::CX, perform_cx_gate);
-        m
-    };
-);
+pub static GATE_FUNCS: LazyLock<HashMap<Gate16, fn(&mut StateVec, &[u8]), BuildNoHashHasher<u64>>> = LazyLock::new(|| {
+    let mut m: HashMap<Gate16, fn(&mut StateVec, &[u8]), BuildNoHashHasher<u64>> = Default::default();
+    m.insert(*gates::H, perform_h_gate);
+    m.insert(*gates::X, perform_x_gate);
+    m.insert(*gates::Z, perform_z_gate);
+    m.insert(*gates::T, perform_t_gate);
+    m.insert(*gates::TDG, perform_tdg_gate);
+    m.insert(*gates::S, perform_s_gate);
+    m.insert(*gates::SDG, perform_sdg_gate);
+    m.insert(*gates::SWAP, perform_swap_gate);
+    m.insert(*gates::CX, perform_cx_gate);
+    m
+});
 
 #[cfg(test)]
 mod test {

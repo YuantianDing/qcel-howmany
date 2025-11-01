@@ -4,7 +4,7 @@ use itertools::Itertools;
 use serde_json::{json, Value};
 use smallvec::smallvec;
 
-use crate::{circ::{gates::SWAP}, groups::permutation::Permut32, search::{ECCs, Instr}, utils::JoinOptionIter};
+use crate::{circ::{gates::SWAP}, groups::permutation::Permut32, search::{ECCs, Instr32}, utils::JoinOptionIter};
 
 impl ECCs {
     pub fn as_quartz(&self) -> serde_json::Value {
@@ -32,11 +32,11 @@ impl ECCs {
     }
 }
 
-fn ecc_to_json(ecc: Vec<Vec<Instr>>) -> Vec<Value> {
+fn ecc_to_json(ecc: Vec<Vec<Instr32>>) -> Vec<Value> {
     let ecc = ecc.iter().map(|list| {
         // println!("   {}", list.iter().join_option(" ", "", ""));
         let mut largest_qubit = 0;
-        let instrs = list.iter().map(|Instr(g, inds)| {
+        let instrs = list.iter().map(|Instr32(g, inds)| {
             let qs = inds.iter().map(|q| format!("Q{q}")).collect_vec();
             largest_qubit = largest_qubit.max(*inds.iter().max().unwrap_or(&0));
             json!([g.name(), qs, qs])
@@ -51,7 +51,7 @@ fn ecc_to_json(ecc: Vec<Vec<Instr>>) -> Vec<Value> {
 }
 
 
-fn generate_ecc_with_swap<'a>(ecc: &'a [(Vec<Instr>, Permut32)]) -> impl Iterator<Item=Vec<Vec<Instr>>> + 'a {
+fn generate_ecc_with_swap<'a>(ecc: &'a [(Vec<Instr32>, Permut32)]) -> impl Iterator<Item=Vec<Vec<Instr32>>> + 'a {
     let mut covered = HashSet::<usize>::new();
     (0..ecc.len()).into_iter().filter_map(move |i| {
         if covered.contains(&i) { return None; }
@@ -60,7 +60,7 @@ fn generate_ecc_with_swap<'a>(ecc: &'a [(Vec<Instr>, Permut32)]) -> impl Iterato
             let pp = perm * *p;
             if pp.is_identity() { covered.insert(i); }
             instrs.iter().cloned().chain(
-                pp.generate_swaps().map(|(a, b)| Instr(*SWAP, smallvec![a, b]))
+                pp.generate_swaps().map(|(a, b)| Instr32(*SWAP, [a, b].into_iter().collect()))
             ).collect_vec()
         }).collect_vec())
     })

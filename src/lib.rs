@@ -15,8 +15,8 @@ use crate::identity::{circuit::Circ, eccproof::IdentityProver, idcircuit::Identi
 fn quclif(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<circ::Argument>()?;
     m.add_class::<circ::Instruction>()?;
-    m.add_class::<circ::Gate>()?;
-    m.add_class::<circ::Instr>()?;
+    m.add_class::<circ::Gate16>()?;
+    m.add_class::<circ::Instr32>()?;
     m.add_class::<state::StateVec>()?;
     m.add_class::<search::ECC>()?;
     m.add_class::<search::ECCs>()?;

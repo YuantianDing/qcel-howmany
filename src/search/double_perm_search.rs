@@ -9,7 +9,7 @@ use smallvec::{smallvec, SmallVec};
 
 
 use crate::{
-    circ::{gates::SWAP, Gate, Instr, Instruction, InstructionSliceExt}, groups::permutation::Permut32, search::ECC, state::StateVec, utils::{AliasList, JoinOptionIter}
+    circ::{gates::SWAP, Gate16, Instr32, Instruction, InstructionSliceExt}, groups::permutation::Permut32, search::ECC, state::StateVec, utils::{AliasList, JoinOptionIter}
 };
 use linear_map::set::LinearSet;
 
@@ -17,12 +17,12 @@ use linear_map::set::LinearSet;
 #[debug("{} {} {}", self.front_perm, self.circ.clone().collect_vec().iter().rev().join_option(" ", "", ""), self.back_perm)]
 pub struct CircTriple{
     pub front_perm: Permut32,
-    pub circ: AliasList<Instr>,
+    pub circ: AliasList<Instr32>,
     pub back_perm: Permut32
 }
 
 impl CircTriple {
-    pub fn simplify(&self) -> (Vec<Instr>, Permut32) {
+    pub fn simplify(&self) -> (Vec<Instr32>, Permut32) {
         let front_perm_inv = self.front_perm.inv();
         let mut instrs = self.circ.iter().map(|a| a.apply_permutation(front_perm_inv)).collect::<Vec<_>>();
         instrs.reverse();
@@ -41,8 +41,8 @@ impl std::fmt::Display for CircTriple {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CircuitECC {
     pub size: usize,
-    pub front_gates: LinearSet<Instr>,
-    pub back_gates: LinearSet<Instr>,
+    pub front_gates: LinearSet<Instr32>,
+    pub back_gates: LinearSet<Instr32>,
     pub circuits: Vec<CircTriple>,
 }
 
@@ -92,7 +92,7 @@ impl Evaluator {
 
         Self { initial_state, backtrack_state }
     }
-    pub fn evaluate(&self, instrs: &[Instr]) -> (StateVec, Permut32, Permut32) {
+    pub fn evaluate(&self, instrs: &[Instr32]) -> (StateVec, Permut32, Permut32) {
         let mut state = self.initial_state.clone();
         let mut mask = 0u8;
         for instr in instrs.iter() {
@@ -105,7 +105,7 @@ impl Evaluator {
 
         let mut backstate = self.backtrack_state.clone();
         backstate.apply_permutation(back_perm_inv);
-        for Instr(gate, idx) in instrs.iter().rev() {
+        for Instr32(gate, idx) in instrs.iter().rev() {
             backstate.apply(idx, gate.adjoint());
         }
         backstate.normalize_arg();
@@ -115,7 +115,7 @@ impl Evaluator {
 
         (backstate, front_perm, back_perm)
     }
-    fn evaluate_multiple(&self, instrs: &[Instr]) -> SmallVec<[(StateVec, Permut32, Permut32); 1]> {
+    fn evaluate_multiple(&self, instrs: &[Instr32]) -> SmallVec<[(StateVec, Permut32, Permut32); 1]> {
         let mut state = self.initial_state.clone();
         let mut mask = 0u8;
         for instr in instrs.iter() {
@@ -129,7 +129,7 @@ impl Evaluator {
 
         let mut backstate = self.backtrack_state.clone();
         backstate.apply_permutation(back_perm_inv);
-        for Instr(gate, idx) in instrs.iter().rev() {
+        for Instr32(gate, idx) in instrs.iter().rev() {
             backstate.apply(idx, gate.adjoint());
         }
         backstate.normalize_arg();
@@ -155,7 +155,7 @@ impl Evaluator {
                     
                     let mut backstate = self.backtrack_state.clone();
                     backstate.apply_permutation(real_back_perm.inv());
-                    for Instr(gate, idx) in instrs.iter().rev() {
+                    for Instr32(gate, idx) in instrs.iter().rev() {
                         backstate.apply(idx, gate.adjoint());
                     }
                     backstate.normalize_arg();
@@ -184,7 +184,7 @@ impl Evaluator {
     }
 
     #[pyo3(name="evaluate")]
-    pub fn evaluate_py(&self, instrs: Vec<Instr>) -> (StateVec, Permut32, Permut32) {
+    pub fn evaluate_py(&self, instrs: Vec<Instr32>) -> (StateVec, Permut32, Permut32) {
         self.evaluate(&instrs)
     }
 }
@@ -211,9 +211,9 @@ impl std::ops::Drop for RawECCs {
     }
 }
 
-fn circuit_get_surface_gates<'a>(circ: impl Iterator<Item = &'a Instr> + Clone) -> impl Iterator<Item = &'a Instr> + Clone {
+fn circuit_get_surface_gates<'a>(circ: impl Iterator<Item = &'a Instr32> + Clone) -> impl Iterator<Item = &'a Instr32> + Clone {
     let mut mask = 0;
-    circ.filter(move |Instr(_, qubs)| qubs.iter().all(|&qubit| {
+    circ.filter(move |Instr32(_, qubs)| qubs.iter().all(|&qubit| {
         let qubit_mask = 1 << qubit;
         if mask & qubit_mask == 0 {
             mask |= qubit_mask;
@@ -225,7 +225,7 @@ fn circuit_get_surface_gates<'a>(circ: impl Iterator<Item = &'a Instr> + Clone) 
 }
 
 impl RawECCs {
-    fn add_entry(&mut self, hash_value: u64, front_perm: Permut32, back_perm: Permut32, circ: &AliasList<Instr>, instr_vec: &[Instr]) -> Option<AliasList<Instr>> {
+    fn add_entry(&mut self, hash_value: u64, front_perm: Permut32, back_perm: Permut32, circ: &AliasList<Instr32>, instr_vec: &[Instr32]) -> Option<AliasList<Instr32>> {
         let instr = instr_vec.last().unwrap().clone();
         let front_gates_iter = circuit_get_surface_gates(instr_vec.iter())
             .map(|instr| instr.apply_permutation(front_perm.inv()));
@@ -265,7 +265,7 @@ impl RawECCs {
             }
         }
     }
-    pub fn find_equivalents(&self, evaluator: &Evaluator, instrs: &[Instr]) -> Option<ECC> {
+    pub fn find_equivalents(&self, evaluator: &Evaluator, instrs: &[Instr32]) -> Option<ECC> {
         let (backstate, front_perm, back_perm) = evaluator.evaluate(instrs);
 
         self.inner.get(&backstate.hash_value()).map(|ecc| {
@@ -295,11 +295,11 @@ impl RawECCs {
         map
     }
     #[staticmethod]
-    fn search_naive(evaluator: &Evaluator, instrs: Vec<Instr>, max_size: usize) -> (RawECCs, [usize; 3]) {
+    fn search_naive(evaluator: &Evaluator, instrs: Vec<Instr32>, max_size: usize) -> (RawECCs, [usize; 3]) {
         let mut map = RawECCs::new(evaluator);
         let nqubits = evaluator.nqubits() as u8;
         
-        let mut queue: VecDeque<AliasList<Instr>> = VecDeque::new();
+        let mut queue: VecDeque<AliasList<Instr32>> = VecDeque::new();
         queue.push_back(AliasList::nil());
 
         let mut instr_vec = Vec::new();
@@ -337,10 +337,10 @@ impl RawECCs {
         (map, counters)
     }
     #[staticmethod]
-    fn search(evaluator: &Evaluator, instrs: Vec<Instr>, max_size: usize) -> (RawECCs, [usize; 3]) {
+    fn search(evaluator: &Evaluator, instrs: Vec<Instr32>, max_size: usize) -> (RawECCs, [usize; 3]) {
         let mut map = RawECCs::new(evaluator);
         
-        let mut queue: VecDeque<AliasList<Instr>> = VecDeque::new();
+        let mut queue: VecDeque<AliasList<Instr32>> = VecDeque::new();
         queue.push_back(AliasList::nil());
 
         let mut instr_vec = Vec::new();
@@ -383,7 +383,7 @@ impl RawECCs {
     #[staticmethod]
     pub fn generate(
         evaluator: &Evaluator,
-        mut gates: Vec<Gate>,
+        mut gates: Vec<Gate16>,
         max_size: usize,
     ) -> (RawECCs, [usize; 3]) {
         let adjoint_gates = gates.iter().map(|g| g.adjoint()).collect_vec();
@@ -397,15 +397,15 @@ impl RawECCs {
         gates.sort_by_key(|g| (g.nqargs(), g.name()));
         
 
-        let mut instructions: Vec<Instr> = Vec::new();
+        let mut instructions: Vec<Instr32> = Vec::new();
 
         for instr in gates {
             match instr.nqargs() {
-                1 => instructions.extend((0..evaluator.nqubits()).map(|i| Instr(instr.clone(), smallvec::smallvec![i as u8]))),
+                1 => instructions.extend((0..evaluator.nqubits()).map(|i| Instr32(instr.clone(), [i as u8].into_iter().collect()))),
                 2 => instructions.extend((0..evaluator.nqubits()).flat_map(|i| {
                     (0..evaluator.nqubits())
                         .filter(move |j| *j != i)
-                        .map(move |j| Instr(instr.clone(), smallvec::smallvec![i as u8, j as u8]))
+                        .map(move |j| Instr32(instr.clone(), [i as u8, j as u8].into_iter().collect()))
                 })),
                 _ => panic!("Only 1 and 2 qubit instructions are supported"),
             }
@@ -417,7 +417,7 @@ impl RawECCs {
     #[staticmethod]
     pub fn generate_naive(
         evaluator: &Evaluator,
-        mut gates: Vec<Gate>,
+        mut gates: Vec<Gate16>,
         max_size: usize,
     ) -> (RawECCs, [usize; 3]) {
         let adjoint_gates = gates.iter().map(|g| g.adjoint()).collect_vec();
@@ -430,15 +430,15 @@ impl RawECCs {
         
         gates.sort_by_key(|g| (g.nqargs(), g.name()));
 
-        let mut instructions: Vec<Instr> = Vec::new();
+        let mut instructions: Vec<Instr32> = Vec::new();
 
         for instr in gates {
             match instr.nqargs() {
-                1 => instructions.extend((0..evaluator.nqubits()).map(|i| Instr(instr.clone(), smallvec::smallvec![i as u8]))),
+                1 => instructions.extend((0..evaluator.nqubits()).map(|i| Instr32(instr.clone(), [i as u8].into_iter().collect()))),
                 2 => instructions.extend((0..evaluator.nqubits()).flat_map(|i| {
                     (0..evaluator.nqubits())
                         .filter(move |j| *j != i)
-                        .map(move |j| Instr(instr.clone(), smallvec::smallvec![i as u8, j as u8]))
+                        .map(move |j| Instr32(instr.clone(), [i as u8, j as u8].into_iter().collect()))
                 })),
                 _ => panic!("Only 1 and 2 qubit instructions are supported"),
             }
@@ -449,7 +449,7 @@ impl RawECCs {
     }
 
     #[pyo3(name="find_equivalents")]
-    fn find_equivalents_py(&self, evaluator: &Evaluator, instrs: Vec<Instr>) -> Option<ECC> {
+    fn find_equivalents_py(&self, evaluator: &Evaluator, instrs: Vec<Instr32>) -> Option<ECC> {
         self.find_equivalents(evaluator, &instrs)
     }
 
