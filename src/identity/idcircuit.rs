@@ -1,13 +1,15 @@
 use derive_more::Deref;
 use pyo3::{Bound, PyAny};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
-use rand;
+use rand::{self, SeedableRng};
+use rand::rngs::StdRng;
 use rayon::iter::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
 use serde_json::Value;
 use std::fmt;
 use std::sync::LazyLock;
 
 use crate::circ::Gate16;
+use crate::defs::F64_PERCISION_EPSILON;
 // use crate::identity::circuit::CircGraph;
 use crate::{circ::Instr32, identity::circuit::Circ, state::StateVec};
 use colored::Colorize;
@@ -64,7 +66,7 @@ impl IdentityCirc {
     #[new]
     pub fn unchecked(circuit: Circ) -> Self {
         let result = Self(circuit);
-        assert!(result.check(), "IdentityCirc::new: circuit is not identity {}", result);
+        assert!(result.check(), "IdentityCirc: circuit is not identity {}", result);
         result
     }
     #[staticmethod]
@@ -127,7 +129,7 @@ impl IdentityCirc {
         qargs_coverage
     }
     pub fn check(&self) -> bool {
-        let mut state1 = StateVec::from_random(&mut rand::rng(), self.nqubits() as u32);
+        let mut state1 = StateVec::from_random(&mut StdRng::from_os_rng(), self.nqubits() as u32);
         let mut state2 = state1.clone();
 
         for Instr32(g, qargs) in self.0.instrs.iter() {
@@ -136,7 +138,6 @@ impl IdentityCirc {
         state1.apply_permutation(self.perm);
         state1.normalize_arg();
         
-        // assert!(state1.approx_eq(&state2, 1e-8), "IdentityCirc::check: circuit is not identity {:?} {:?}", state1, state2);
         state1.approx_eq(&state2, 1e-8)
     }
 
@@ -434,7 +435,7 @@ impl<'a> IdentitySubcircuit<'a> {
 
 static COMBINATIONS : LazyLock<Vec<Vec<Vec<u8>>>> = LazyLock::new(|| {
     let mut combinations: Vec<Vec<Vec<u8>>> = Vec::new();
-    for n in 0u8..=18 {
+    for n in 0u8..=19 {
         combinations.push((0u8..=(n / 2 + 1)).flat_map(|k| (0u8..n).combinations(k as usize)).collect_vec());
     }
     combinations
@@ -449,15 +450,15 @@ mod tests {
     #[test]
     fn test_subcircuit_split() {
         let instrs = vec![
-            gates::T.instr([0u8]),
-            gates::CX.instr([1u8, 0]),
-            gates::CX.instr([0u8, 2]),
-            gates::CX.instr([0u8, 1]),
-            gates::TDG.instr([1u8]),
-            gates::CX.instr([0u8, 1]),
-            gates::CX.instr([2u8, 0]),
-            gates::CX.instr([0u8, 2]),
-            gates::CX.instr([1u8, 2]),
+            gates::T.instr([0]),
+            gates::CX.instr([1, 0]),
+            gates::CX.instr([0, 2]),
+            gates::CX.instr([0, 1]),
+            gates::TDG.instr([1]),
+            gates::CX.instr([0, 1]),
+            gates::CX.instr([2, 0]),
+            gates::CX.instr([0, 2]),
+            gates::CX.instr([1, 2]),
         ];
         let perm = Permut32::from_iter([2, 1, 0].into_iter());
         let circuit = Circ::new(instrs, perm);
@@ -476,5 +477,21 @@ mod tests {
             }
             println!();
         }
+    }
+    #[test]
+    fn test_identity_check() {
+        let instrs = vec![
+            gates::CX.instr([0, 1]),
+            gates::CY.instr([1, 0]),
+            gates::Z.instr([0]),
+            gates::CY.instr([1, 0]),
+            gates::CX.instr([0, 1]),
+            gates::Y.instr([1]),
+            gates::X.instr([1]),
+        ];
+        let perm = Permut32::identity(2);
+        let circuit = Circ::new(instrs, perm);
+        let id_circ = IdentityCirc::unchecked(circuit);
+        assert!(id_circ.check());
     }
 }

@@ -1,8 +1,13 @@
+use std::hash::{DefaultHasher, Hash, Hasher};
+
 use nalgebra::DMatrix;
 use num_complex::{Complex, Complex64};
 
-pub const PERCISION_LEVEL : usize = 32;
+// pub type Qreal = f64;
+// pub type Qcplx = Complex64;
 
+
+pub const PERCISION_LEVEL : usize = 10;
 
 pub const F64_PERCISION_EPSILON: f64 = 1f64 / ((1u64 << PERCISION_LEVEL) as f64);
 
@@ -30,4 +35,3 @@ pub fn cmplx64_to_fixpoint(val: Complex64) -> Complex<i64> {
 pub fn cmplx64mat_to_fixpoint(val: &DMatrix<Complex64>) -> DMatrix<Complex<i64>> {
     val.map(cmplx64_to_fixpoint)
 }
-

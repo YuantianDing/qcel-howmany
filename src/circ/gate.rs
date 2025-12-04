@@ -150,7 +150,7 @@ impl Gate16 {
             }
         }
     }
-    pub fn instr(&self, qargs: impl IntoIterator<Item=u8>) -> Instr32 {
+    pub fn instr<const N: usize>(&self, qargs: [u8; N]) -> Instr32 {
         Instr32(self.clone(), qargs.into_iter().collect())
     }
 }

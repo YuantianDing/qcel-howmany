@@ -12,13 +12,15 @@ from qiskit.circuit import library as qlib
 from generate_eccs import generate_eccs
 
 def build_prover(gate_set: str, ngates: int, nqubits: int = 5) -> tuple[quclif.IdentityProver, dict]:
-    name = f".cache/prover-{gate_set}-{ngates}-{nqubits}.prover"
+    name = f".cache/prover-{gate_set.replace("/", "::")}-{ngates}-{nqubits}.prover"
     if os.path.exists(name) and os.path.exists(name + ".json"):
+        print(f"Loading prover for gate set '{gate_set}' with {ngates} gates.")
         prover = quclif.IdentityProver.from_postcard(name)
         with open(name + ".json") as f:
             metadata = json.load(f)
         return prover, metadata
     
+    print(f"Building prover for gate set '{gate_set}' with {ngates} gates.")
     eccs, _ = generate_eccs(gate_set, ngates, nqubits)
     
     start = time.time_ns()
@@ -27,7 +29,7 @@ def build_prover(gate_set: str, ngates: int, nqubits: int = 5) -> tuple[quclif.I
         'time': time.time_ns() - start,
         'rules': [a.pythonize() for a in prover.get_assumed()],
     }
-    
+
     prover.dump_postcard(name)
     with open(name + ".json", "w") as f:
         json.dump(metadata, f)

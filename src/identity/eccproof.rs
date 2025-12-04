@@ -48,6 +48,7 @@ impl IdentityProver {
         }
         
         identities.sort();
+        identities.dedup();
         eprintln!("Proving Identities");
         for id in identities.into_iter().progress() {
             prover.add_identity(id, 2, 50000);

@@ -4,12 +4,12 @@ use derive_more::{Deref, Debug, Display};
 use itertools::Itertools;
 use nohash_hasher::BuildNoHashHasher;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
-use rand::rngs::ThreadRng;
+use rand::{SeedableRng, rngs::{StdRng, ThreadRng}};
 use smallvec::{smallvec, SmallVec};
 
 
 use crate::{
-    circ::{gates::SWAP, Gate16, Instr32, Instruction, InstructionSliceExt}, groups::permutation::Permut32, search::ECC, state::StateVec, utils::{AliasList, JoinOptionIter}
+    circ::{Gate16, Instr32, Instruction, InstructionSliceExt, gates::SWAP}, groups::permutation::Permut32, search::ECC, state::{StateVec, order_info::OrderInfo}, utils::{AliasList, JoinOptionIter}
 };
 use linear_map::set::LinearSet;
 
@@ -83,7 +83,7 @@ pub struct Evaluator {
 }
 
 impl Evaluator {
-    pub fn from_random(nqubits: usize, rng: &mut ThreadRng) -> Self {
+    pub fn from_random(nqubits: usize, rng: &mut StdRng) -> Self {
         let initial_state = StateVec::from_random_symmetric(rng, nqubits as u32);
 
         let mut backtrack_state = StateVec::from_random(rng, nqubits as u32);
@@ -92,30 +92,36 @@ impl Evaluator {
 
         Self { initial_state, backtrack_state }
     }
-    pub fn evaluate(&self, instrs: &[Instr32]) -> (StateVec, Permut32, Permut32) {
-        let mut state = self.initial_state.clone();
-        let mut mask = 0u8;
-        for instr in instrs.iter() {
-            state.apply(&instr.1, instr.0);
-            mask |= instr.arg_mask();
-        }
-        state.normalize_arg();
-        let back_perm_inv = state.get_permutation();
-        let back_perm = back_perm_inv.inv();
+    // pub fn evaluate_detailed(&self, instrs: &[Instr32]) -> (StateVec, StateVec, Permut32, Permut32, u8) {
+    //     let mut state = self.initial_state.clone();
+    //     let mut mask = 0u8;
+    //     for instr in instrs.iter() {
+    //         state.apply(&instr.1, instr.0);
+    //         mask |= instr.arg_mask();
+    //     }
+        
+    //     state.normalize_arg();
+    //     let (back_perm_inv, mut eq_mask) = state.get_orderinfo().as_bits();
+    //     let back_perm = back_perm_inv.inv();
 
-        let mut backstate = self.backtrack_state.clone();
-        backstate.apply_permutation(back_perm_inv);
-        for Instr32(gate, idx) in instrs.iter().rev() {
-            backstate.apply(idx, gate.adjoint());
-        }
-        backstate.normalize_arg();
-        let front_perm = backstate.get_permutation();
-        let front_perm_inv = front_perm.inv();
-        backstate.apply_permutation(front_perm_inv);
+    //     let mut backstate = self.backtrack_state.clone();
+    //     backstate.apply_permutation(back_perm_inv);
+    //     for Instr32(gate, idx) in instrs.iter().rev() {
+    //         backstate.apply(idx, gate.adjoint());
+    //     }
+    //     backstate.normalize_arg();
+    //     let front_perm = backstate.get_permutation();
+    //     let front_perm_inv = front_perm.inv();
+    //     backstate.apply_permutation(front_perm_inv);
 
-        (backstate, front_perm, back_perm)
+    //     (state, backstate, front_perm, back_perm, eq_mask & mask)
+    // }
+    pub fn evaluate(&self, instrs: &[Instr32]) -> (StateVec, Permut32, Permut32, StateVec) {
+        let (backstate, vec, oi) = self.evaluate_multiple(instrs);
+
+        (backstate, vec[0].0, vec[0].1, oi)
     }
-    fn evaluate_multiple(&self, instrs: &[Instr32]) -> SmallVec<[(StateVec, Permut32, Permut32); 1]> {
+    pub fn evaluate_multiple(&self, instrs: &[Instr32]) -> (StateVec, SmallVec<[(Permut32, Permut32); 1]>, StateVec) {
         let mut state = self.initial_state.clone();
         let mut mask = 0u8;
         for instr in instrs.iter() {
@@ -124,50 +130,41 @@ impl Evaluator {
         }
         
         state.normalize_arg();
-        let (back_perm_inv, mut eq_mask) = state.get_permutation_with_eq();
-        let back_perm = back_perm_inv.inv();
+        let oi = state.get_orderinfo();
+        let mut true_back_state = None;
+        let mut perms = SmallVec::new();
+        for back_perm_inv in oi.as_perms_mask(mask) {
+            let back_perm = back_perm_inv.inv();
 
-        let mut backstate = self.backtrack_state.clone();
-        backstate.apply_permutation(back_perm_inv);
-        for Instr32(gate, idx) in instrs.iter().rev() {
-            backstate.apply(idx, gate.adjoint());
-        }
-        backstate.normalize_arg();
-        let front_perm = backstate.get_permutation();
-        let front_perm_inv = front_perm.inv();
-        backstate.apply_permutation(front_perm_inv);
-
-        let mut result = smallvec![(backstate, front_perm, back_perm)];
-
-        // Add Isomorphism Points
-        eq_mask &= mask;
-        if eq_mask > 0 {
-            let mask = back_perm.permut_bv(mask);
-            state.apply_permutation(back_perm);
-            for i in 0u8..(state.nqubits() - 1) as u8 {
-                if (mask >> i) & 1 != 0 &&
-                (mask >> (i + 1)) & 1 != 0 && 
-                state.compare_qubits(i, i+1) == Ordering::Equal &&
-                state.qubit_equiv(i, i+1) {
-                    
-                    let mut real_back_perm = back_perm.clone();
-                    real_back_perm.swap_inputs(back_perm_inv.at(i), back_perm_inv.at(i+1));
-                    
-                    let mut backstate = self.backtrack_state.clone();
-                    backstate.apply_permutation(real_back_perm.inv());
-                    for Instr32(gate, idx) in instrs.iter().rev() {
-                        backstate.apply(idx, gate.adjoint());
-                    }
-                    backstate.normalize_arg();
-                    let front_perm = backstate.get_permutation();
-                    let front_perm_inv = front_perm.inv();
-                    backstate.apply_permutation(front_perm_inv);
-
-                    result.push((backstate, front_perm, real_back_perm))
-                }
+            let mut backstate = self.backtrack_state.clone();
+            backstate.apply_permutation(back_perm_inv);
+            for Instr32(gate, idx) in instrs.iter().rev() {
+                backstate.apply(idx, gate.adjoint());
+            }
+            backstate.normalize_arg();
+            let (front_perm, front_perm_eq) = backstate.get_orderinfo().as_bits();
+            assert!(front_perm_eq == 0, "Non-deterministic front permutation detected during evaluation");
+            let front_perm_inv = front_perm.inv();
+            backstate.apply_permutation(front_perm_inv);
+            if true_back_state.is_none() {
+                true_back_state = Some(backstate);
+                perms.push((front_perm, back_perm));
+            } else if let Some(ref tb) = true_back_state {
+                match backstate.cmp(&tb) {
+                    Ordering::Less => {
+                        true_back_state = Some(backstate);
+                        perms.clear();
+                        perms.push((front_perm, back_perm));
+                    },
+                    Ordering::Equal => {
+                        perms.push((front_perm, back_perm));
+                    },
+                    _ => ()  
+                } 
             }
         }
-        result
+
+        (true_back_state.unwrap(), perms, state)
     }
 }
 
@@ -176,16 +173,19 @@ impl Evaluator {
 impl Evaluator {
     #[new]
     fn random_py(nqubits: usize) -> Self {
-        let mut rng = rand::rng();
-        Self::from_random(nqubits, &mut rng)
+        Self::from_random(nqubits, &mut rand::rngs::StdRng::from_os_rng())
     }
     pub fn nqubits(&self) -> usize {
         self.initial_state.nqubits()
     }
 
     #[pyo3(name="evaluate")]
-    pub fn evaluate_py(&self, instrs: Vec<Instr32>) -> (StateVec, Permut32, Permut32) {
+    pub fn evaluate_py(&self, instrs: Vec<Instr32>) -> (StateVec, Permut32, Permut32, StateVec) {
         self.evaluate(&instrs)
+    }
+
+    fn initial_key(&self) -> u64 {
+        self.evaluate(&[]).0.hash_value()
     }
 }
 
@@ -266,7 +266,7 @@ impl RawECCs {
         }
     }
     pub fn find_equivalents(&self, evaluator: &Evaluator, instrs: &[Instr32]) -> Option<ECC> {
-        let (backstate, front_perm, back_perm) = evaluator.evaluate(instrs);
+        let (backstate, front_perm, back_perm, _) = evaluator.evaluate(instrs);
 
         self.inner.get(&backstate.hash_value()).map(|ecc| {
             ECC(ecc.circuits
@@ -276,7 +276,7 @@ impl RawECCs {
                     back_perm: back_perm.inv() * triple.back_perm,
                     circ: triple.circ.clone(),
                 }.simplify())
-                .filter(|(c, p)| c != instrs || *p != Permut32::identity(evaluator.nqubits() as u8))
+                // .filter(|(c, p)| c != instrs || *p != Permut32::identity(evaluator.nqubits() as u8))
                 .collect_vec())
         }).and_then(|ecc| if ecc.0.is_empty() { None } else { Some(ecc) })
     }
@@ -359,10 +359,12 @@ impl RawECCs {
                 if instr.pass_mask(mask).is_none() { continue; }
                 
                 instr_vec.push(instr.clone());
-                let vec = evaluator.evaluate_multiple(&instr_vec[..]);
-                for (backstate, front_perm, back_perm) in vec {
-                    if let Some(new_point) = map.add_entry(backstate.hash_value(), front_perm, back_perm, &circ, &instr_vec) {
+                let (backstate, vec, _) = evaluator.evaluate_multiple(&instr_vec[..]);
+                let hash_value = backstate.hash_value();
+                for (front_perm, back_perm) in vec {
+                    if let Some(new_point) = map.add_entry(hash_value, front_perm, back_perm, &circ, &instr_vec) {
                         if instr_vec.len() < max_size { queue.push_back(new_point.clone()); }
+                        // println!("\t{}: {}, {} new value", instr, front_perm, back_perm);
                     }
                     counters[2] += 1;
                 }
@@ -394,7 +396,7 @@ impl RawECCs {
             }
         }
         
-        gates.sort_by_key(|g| (g.nqargs(), g.name()));
+        gates.sort_by_key(|g| (g.nqargs(), *g));
         
 
         let mut instructions: Vec<Instr32> = Vec::new();
@@ -428,7 +430,7 @@ impl RawECCs {
             }
         }
         
-        gates.sort_by_key(|g| (g.nqargs(), g.name()));
+        gates.sort_by_key(|g| (g.nqargs(), *g));
 
         let mut instructions: Vec<Instr32> = Vec::new();
 
@@ -453,6 +455,18 @@ impl RawECCs {
         self.find_equivalents(evaluator, &instrs)
     }
 
+    pub fn compute_next_key(&self, evaluator: &Evaluator, current_key: u64, instr: Instr32) -> Option<u64> {
+        self.inner.get(&current_key).and_then(|ecc| {
+            let triple = ecc.circuits.first().unwrap();
+            let mut instrs = triple.circ.iter().cloned().collect_vec();
+            instrs.push(instr.clone());
+            let (backstate, _, _, _) = evaluator.evaluate(&instrs);
+            let hash_value = backstate.hash_value();
+            if self.inner.contains_key(&hash_value) {
+                Some(hash_value)
+            } else { None }
+        })
+    }
     
     // for i in 0..instrs.len() {
     //     for j in (i+1)..=instrs.len() {
@@ -471,4 +485,26 @@ impl RawECCs {
     //     }
     // }
 
+}
+
+#[cfg(test)]
+mod test {
+    use std::collections::HashSet;
+
+    use rand::{SeedableRng, rngs::StdRng};
+
+    use crate::{circ::{gates::{CX, CY, CZ, H, S, SDG, T, TDG, X, Y, Z}, Instr32}, identity::{eccproof::IdentityProver, idcircuit::IdentityCirc}, instr_vec, search::{double_perm_search::{CircTriple, Evaluator, RawECCs}, ECCs}, utils::JoinOptionIter};
+
+    #[test]
+    fn test() {
+        let nqubits = 5;
+        let ngates = 6;
+        let use_eqclass = true;
+        let evaluator = Evaluator::from_random(nqubits, &mut StdRng::from_os_rng());
+        let (ecc1, _) = RawECCs::generate(&evaluator, vec![*H, *X, *TDG, *T, *CX], ngates);
+        let (ecc2, _) = RawECCs::generate_naive(&evaluator, vec![*H, *X, *TDG, *T, *CX], ngates);
+        let ecc1 : HashSet<_> = ecc1.simplify().to_identity_circuits().into_iter().collect();
+        let ecc2 : HashSet<_> = ecc2.simplify().to_identity_circuits().into_iter().collect();
+        assert!(ecc2.is_subset(&ecc1));
+    }
 }

@@ -99,11 +99,13 @@ pub static GATE_FUNCS: LazyLock<HashMap<Gate16, fn(&mut StateVec, &[u8]), BuildN
 
 #[cfg(test)]
 mod test {
+    use rand::{SeedableRng, rngs::StdRng};
+
     use crate::state::{gates::{perform_t_gate, perform_x_gate}, StateVec};
 
     #[test]
     fn test() {
-        let mut state = StateVec::from_random(&mut rand::rng(), 1);
+        let mut state = StateVec::from_random(&mut StdRng::from_os_rng(), 1);
         let mut state2 = state.clone();
 
         perform_x_gate(&mut state, &[0]);

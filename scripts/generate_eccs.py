@@ -10,8 +10,8 @@ import quclif
 
 from gate_set import GATE_SETS
 
-def generate_eccs(gate_set: str, ngates: int, nqubits: int = 5) -> tuple[quclif.ECCs, dict]:
-    name = f".cache/eccset-{gate_set}-{ngates}-{nqubits}.eccs"
+def generate_eccs(gate_set: str, ngates: int, nqubits: int = 5, naive=False) -> tuple[quclif.ECCs, dict]:
+    name = f".cache/eccset-{gate_set.replace("/", "::")}-{ngates}-{nqubits}{'-naive' if naive else ''}.eccs"
     if os.path.exists(name) and os.path.exists(name + ".json"):
         ecc_set = quclif.ECCs.from_postcard(name)
         with open(name + ".json") as f:
@@ -20,17 +20,26 @@ def generate_eccs(gate_set: str, ngates: int, nqubits: int = 5) -> tuple[quclif.
     
     start = time.time_ns()
     evaluator = quclif.Evaluator(nqubits=nqubits)
-    (ecc_set, counters) = quclif.RawECCs.generate(
-        evaluator,
-        gates=[quclif.Gate(g) for g in GATE_SETS[gate_set]],
-        max_size=ngates,
-    )
+    if naive:
+        (ecc_set, counters) = quclif.RawECCs.generate_naive(
+            evaluator,
+            gates=[quclif.Gate(g.lower()) for g in GATE_SETS[gate_set]],
+            max_size=ngates,
+        )
+    else:
+        (ecc_set, counters) = quclif.RawECCs.generate(
+            evaluator,
+            gates=[quclif.Gate(g.lower()) for g in GATE_SETS[gate_set]],
+            max_size=ngates,
+        )
     ecc_set = ecc_set.simplify()
     assert len(ecc_set.check()) == 0
     
     metadata = {
         'time': time.time_ns() - start,
         'counters': counters,
+        'eccs': len(ecc_set),
+        'identities': len(ecc_set.to_identity_circuits()),
     }
     
     os.makedirs(".cache", exist_ok=True)

@@ -12,6 +12,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
+    "click>=8.1.8",
     "qiskit>=1.2.4",
 ]
 [project.optional-dependencies]
@@ -24,6 +25,7 @@ features = ["pyo3/extension-module"]
 
 [dependency-groups]
 dev = [
+    "pandas>=2.0.3",
     "permuta>=2.3.0",
     "tqdm>=4.67.1",
 ]

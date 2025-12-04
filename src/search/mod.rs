@@ -1,8 +1,11 @@
+use std::collections::HashSet;
+
 use derive_more::{Debug, Deref, DerefMut, Display, From, Index, Into};
 use itertools::Itertools;
+use rand::{SeedableRng, rngs::StdRng};
 use smallvec::SmallVec;
 
-use crate::{circ::{gates::SWAP, Gate16, Instr32}, groups::permutation::Permut32, search::double_perm_search::{RawECCs, Evaluator}, state::StateVec, utils::{DenseIndexMap, JoinOptionIter}};
+use crate::{circ::{Gate16, Instr32, gates::SWAP}, groups::permutation::Permut32, identity::{circuit::Circ, idcircuit::IdentityCirc}, search::double_perm_search::{Evaluator, RawECCs}, state::StateVec, utils::{DenseIndexMap, JoinOptionIter}};
 
 
 
@@ -80,7 +83,7 @@ impl std::fmt::Display for ECCs {
 
 impl ECCs {
     pub fn check<'a>(&'a self) -> impl Iterator<Item=&'a ECC> + 'a {
-        let state = StateVec::from_random(&mut rand::rng(), self.nqubits as u32);
+        let state = StateVec::from_random(&mut StdRng::from_os_rng(), self.nqubits as u32);
         self.eccs.iter().filter(move |ecc| !ecc.circuits().into_iter().map(|circ| {
                 let mut s = state.clone();
                 for Instr32(g, idx) in circ {
@@ -162,6 +165,19 @@ impl ECCs {
             eccs: self.eccs.iter().filter(|ecc| ecc.len() > 1).cloned().collect(),
             nqubits: self.nqubits,
         }
+    }
+    pub fn to_identity_circuits(&self) -> Vec<IdentityCirc> {
+        let mut identities = Vec::new();
+        for ecc in self.iter() {
+            let initial = Circ::new(ecc[0].0.clone(), ecc[0].1).inverse();
+            for (c, p) in ecc.iter().skip(1) {
+                let c = Circ::new(c.clone(), *p);
+                identities.push((&initial + &c).rotate_representative());
+            }
+        }
+        identities.sort();
+        identities.dedup();
+        return identities;
     }
 }
 

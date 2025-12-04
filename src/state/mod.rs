@@ -2,15 +2,15 @@ use nalgebra::{ArrayStorage, ComplexField, DMatrix, DVector, Matrix2, Matrix4, V
 use num_complex::Complex64;
 use pyo3::Bound;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
-use rand::{rngs::ThreadRng, Rng};
+use rand::{Rng, SeedableRng, rngs::{StdRng, ThreadRng}};
 use smallvec::SmallVec;
 use core::panic;
 use std::{
-    array, cell::{RefCell, UnsafeCell}, cmp::Ordering, collections::BTreeSet, hash::{Hash, Hasher}
+    array, cell::{RefCell, UnsafeCell}, cmp::Ordering, collections::{BTreeMap, BTreeSet, HashMap}, hash::{DefaultHasher, Hash, Hasher}
 };
 
-use crate::{circ::{Gate16, Instr32}, defs::{cmplx64_to_fixpoint, f64_percision_repr, F64_PERCISION_EPSILON}, groups::permutation::Permut32, state::indices::qubit_matrix_indices2};
-
+use crate::{circ::{Gate16, Instr32}, defs::{F64_PERCISION_EPSILON, cmplx64_to_fixpoint, f64_percision_repr}, groups::permutation::Permut32, state::indices::qubit_matrix_indices2};
+pub mod order_info;
 #[gen_stub_pyclass]
 #[pyo3::pyclass(eq, str)]
 #[derive(Clone)]
@@ -27,6 +27,28 @@ impl Hash for StateVec {
         for &val in self.im.iter() {
             f64_percision_repr(val).hash(state);
         }
+    }
+}
+impl PartialOrd for StateVec {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for StateVec {
+    fn cmp(&self, other: &Self) -> Ordering {
+        for (a, b) in self.re.iter().zip(other.re.iter()) {
+            let ord = f64_percision_repr(*a).cmp(&f64_percision_repr(*b));
+            if ord != Ordering::Equal {
+                return ord;
+            }
+        }
+        for (a, b) in self.im.iter().zip(other.im.iter()) {
+            let ord = f64_percision_repr(*a).cmp(&f64_percision_repr(*b));
+            if ord != Ordering::Equal {
+                return ord;
+            }
+        }
+        Ordering::Equal
     }
 }
 
@@ -106,25 +128,25 @@ impl StateVec {
         let size = 1_usize
             .checked_shl(num_qubits)
             .expect("Number of qubits too large, resulting in overflow for state vector size.");
-        assert!(size > 0, "State vector size must be greater than 0");
+        // assert!(size > 0, "State vector size must be greater than 0");
         Self {
             re: vec![0.0; size].into_boxed_slice(),
             im: vec![0.0; size].into_boxed_slice(),
         }
     }
-    pub fn get_permutation(&self) -> Permut32 {
-        Permut32::from_order(self.nqubits() as u8, |a, b| self.compare_qubits(a, b))
-    }
-    pub fn get_permutation_with_eq(&self) -> (Permut32, u8) {
-        let mut eq_mask = 0u8;
-        (Permut32::from_order(self.nqubits() as u8, |a, b| {
-            let res = self.compare_qubits(a, b);
-            if res == Ordering::Equal {
-                eq_mask |= 1 << std::cmp::max(a, b);
-            }
-            res
-        }), eq_mask)
-    }
+    // pub fn get_permutation(&self) -> Permut32 {
+    //     Permut32::from_order(self.nqubits() as u8, |a, b| self.compare_qubits(a, b))
+    // }
+    // pub fn get_permutation_with_eq(&self) -> (Permut32, u8) {
+    //     let mut eq_mask = 0u8;
+    //     (Permut32::from_order(self.nqubits() as u8, |a, b| {
+    //         let res = self.compare_qubits(a, b);
+    //         if res == Ordering::Equal {
+    //             eq_mask |= 1 << std::cmp::max(a, b);
+    //         }
+    //         res
+    //     }), eq_mask)
+    // }
     pub fn apply_permutation(&mut self, permut: Permut32) {
         reserve_state_vec_cache(self.nqubits());
         STATE_VEC_CACHE.with(|cache| {
@@ -144,6 +166,74 @@ impl StateVec {
             if cmplx64_to_fixpoint(vec[1]) != cmplx64_to_fixpoint(vec[2]) { return false; }
         }
         true
+    }
+    pub fn get_permutation(&self) -> Permut32 {
+        self.get_orderinfo().as_bits().0
+    }
+    pub fn get_orderinfo(&self) -> order_info::OrderInfo {
+        let nqubits = self.nqubits() as u8;
+        let mut oi = order_info::OrderInfo::new(nqubits as usize);
+        
+        oi.sort_eqclass_by_key(0, |&q| {
+            let a = cmplx64_to_fixpoint(self.at(1 << q));
+            let b = cmplx64_to_fixpoint(self.at(((1 << self.nqubits()) - 1) & !(1 << q)));
+            [a.re, a.im, b.re, b.im]
+        });
+
+        // FixPoint Computation
+        // let mut ready_part = 0;
+        // while let Some(idx) = oi.first_eqclass_after(ready_part) {
+        //     let arr: Vec<_> = oi.get_eqclass(idx).iter().map(|&q| self.hash_value_of_qubit(q as u8, &oi)).collect();
+        //     if !oi.sort_eqclass_by_array(idx, arr) {
+        //         ready_part = idx + 1;
+        //     } else {
+        //         ready_part = 0;
+        //     }
+        // }
+
+        oi
+    }
+    fn hash_value_of_qubit(&self, q: u8, oi: &order_info::OrderInfo) -> u64 {
+        let mut length = 2u32;
+        let mut vec = Vec::with_capacity(oi.n_eqclasses());
+        vec.extend(oi.eqclasses().map(|cls| {
+            let result = cls.iter().map(|&p| if p != (q as usize) { 1u8 << p } else { 0u8 }).fold(0u8, |acc, x| acc | x);
+            length *= result.count_ones() + 1;
+            result
+        }));
+        let mut table = vec![0u64; length as usize];
+
+        for i in 0..self.re.len() as u8 {
+            let mut index = (i & (1 << q) != 0) as usize;
+            for mask in &vec {
+                index *= mask.count_ones() as usize + 1;
+                index += (mask & i).count_ones() as usize;
+            }
+            table[index] = unsafe { table[index].unchecked_add(cmplx64_u64(self.at(i as usize))) };
+        }
+        
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        table.hash(&mut hasher);
+        hasher.finish()
+    }
+    fn hash_value_of_qubit2(&self, q: u8, oi: &order_info::OrderInfo) -> u64 {
+        let mut map = BTreeMap::<Vec<usize>, u64>::new();
+
+        for i in 0..self.re.len() {
+            let mut vec = Vec::with_capacity(oi.n_eqclasses() + 1);
+            vec.push((i & (1 << q) != 0) as usize);
+            vec.extend(oi.eqclasses().map(|cls|
+                cls.iter().cloned()
+                    .filter(|&p|
+                        p != (q as usize) && i & (1 << p) != 0
+                    ).count()));
+            let h = map.entry(vec).or_insert(Default::default());
+            *h = unsafe { h.unchecked_add(cmplx64_u64(self.at(i))) };
+        }
+        
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        map.hash(&mut hasher);
+        hasher.finish()
     }
     pub fn compare_qubits(&self, a: u8, b: u8) -> Ordering {
         let value = self.at(1 << a) - self.at(1 << b);
@@ -231,12 +321,12 @@ impl StateVec {
 
     #[staticmethod]
     pub fn random(num_qubits: u32) -> Self {
-        Self::from_random_symmetric(&mut rand::rng(), num_qubits)
+        Self::from_random_symmetric(&mut StdRng::from_os_rng(), num_qubits)
     }
     
     #[staticmethod]
     pub fn random_symmetric(num_qubits: u32) -> Self {
-        Self::from_random_symmetric(&mut rand::rng(), num_qubits)
+        Self::from_random_symmetric(&mut StdRng::from_os_rng(), num_qubits)
     }
 
     pub fn nqubits(&self) -> usize {
@@ -293,7 +383,8 @@ impl StateVec {
         if unit.modulus() < F64_PERCISION_EPSILON {
             unit = num_complex::c64(*self.re.last().unwrap(), *self.im.last().unwrap());
             if unit.modulus() < F64_PERCISION_EPSILON {
-                self.normalize(); return;
+                unit = (0..self.re.len()).map(|i| self.at(i)).sum();
+                unit /= unit.norm();
             }
         }
         unit = unit.norm() / unit;
@@ -413,7 +504,7 @@ impl StateVec {
     /// # Panics
     /// * Panics if `num_qubits` is too large, causing `2^num_qubits` to overflow `usize`.
     /// * Panics if memory allocation for the state vector fails (e.g., out of memory).
-    pub fn from_random(rng: &mut ThreadRng, num_qubits: u32) -> Self {
+    pub fn from_random(rng: &mut StdRng, num_qubits: u32) -> Self {
         let size = 1_usize
             .checked_shl(num_qubits)
             .expect("Number of qubits too large, resulting in overflow for state vector size.");
@@ -431,10 +522,11 @@ impl StateVec {
         };
 
         state_vec.normalize();
+        state_vec.normalize_arg();
         state_vec
     }
 
-    pub fn from_random_symmetric(rng: &mut ThreadRng, num_qubits: u32) -> Self {
+    pub fn from_random_symmetric(rng: &mut StdRng, num_qubits: u32) -> Self {
         let size = 1_usize
             .checked_shl(num_qubits)
             .expect("Number of qubits too large, resulting in overflow for state vector size.");
@@ -474,3 +566,9 @@ impl StateVec {
 
 pub mod indices;
 mod gates;
+
+fn cmplx64_u64(val: Complex64) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    cmplx64_to_fixpoint(val).hash(&mut hasher);
+    hasher.finish()
+}

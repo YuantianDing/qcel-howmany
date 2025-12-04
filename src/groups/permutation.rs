@@ -192,6 +192,11 @@ impl Permut32 {
     fn set_len(&mut self, value: u8) {
         self.set(8, value);
     }
+    pub fn shrink(mut self, new_len: u8) -> Self {
+        self.raw = (self.raw & ((1 << new_len * 3) - 1));
+        self.set_len(new_len);
+        self
+    }
     pub fn iter(&self) -> Permut32Iter {
         Permut32Iter {
             perm: *self,

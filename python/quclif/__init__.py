@@ -34,8 +34,22 @@ def Gate(instr: str | qiskit.circuit.Instruction):
 def Instruction(instr: qiskit._accelerate.circuit.CircuitInstruction):
     return inner.Instruction(Gate(instr.operation), [(qbit._register.name, qbit._index) for qbit in instr.qubits], [(cbit._register.name, cbit._index) for cbit in instr.clbits])
 
-def Circuit(circuit: qiskit.circuit.QuantumCircuit) -> list[inner.Instruction]:
-    return [Instruction(instr) for instr in circuit.data]
+def Circuit(circuit: qiskit.circuit.QuantumCircuit, with_regs=False) -> list[inner.Instruction] | list[inner.Instr]:
+    if not with_regs:
+        result = []
+        qregs_map = {}
+        for instr in circuit.data:
+            gate = Gate(instr.operation)
+            qargs = []
+            for qbit in instr.qubits:
+                id = (qbit._register.name, qbit._index)
+                if id not in qregs_map:
+                    qregs_map[id] = len(qregs_map)
+                qargs.append(qregs_map[id])
+            result.append(inner.Instr(gate, qargs))
+        return result
+    else:
+        return [Instruction(instr) for instr in circuit.data]
 
 def to_qiskit(instrs: list[inner.Instruction]):
     from collections import defaultdict

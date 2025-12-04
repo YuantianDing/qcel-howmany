@@ -73,3 +73,8 @@ docs/_build/
 eccset.json
 flamegraph.svg
 cargo-flamegraph.trace/
+
+.cache/
+perf.*
+profile.json.gz
+nohup.out
