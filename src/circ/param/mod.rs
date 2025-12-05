@@ -7,6 +7,7 @@ pub struct ExprParser;
 
 use std::{collections::HashMap, f64::consts::PI};
 
+
 #[derive(Debug, derive_more::Display, thiserror::Error, Clone)]
 pub enum NumericError {
     ParseError(String),

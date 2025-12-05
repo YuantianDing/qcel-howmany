@@ -1,5 +1,6 @@
 use nalgebra::{ArrayStorage, ComplexField, DMatrix, DVector, Matrix2, Matrix4, Vector2, Vector4, VectorN};
-use num_complex::Complex64;
+use numpy::Complex64;
+use crate::{Qreal, Qcplx};
 use pyo3::Bound;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use rand::{Rng, SeedableRng, rngs::{StdRng, ThreadRng}};
@@ -9,57 +10,57 @@ use std::{
     array, cell::{RefCell, UnsafeCell}, cmp::Ordering, collections::{BTreeMap, BTreeSet, HashMap}, hash::{DefaultHasher, Hash, Hasher}
 };
 
-use crate::{circ::{Gate16, Instr32}, defs::{F64_PERCISION_EPSILON, cmplx64_to_fixpoint, f64_percision_repr}, groups::permutation::Permut32, state::indices::qubit_matrix_indices2};
+use crate::{circ::{Gate16, Instr32}, groups::permutation::Permut32, state::indices::qubit_matrix_indices2};
 pub mod order_info;
 #[gen_stub_pyclass]
 #[pyo3::pyclass(eq, str)]
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct StateVec {
-    pub re: Box<[f64]>,
-    pub im: Box<[f64]>,
+    pub re: Box<[Qreal]>,
+    pub im: Box<[Qreal]>,
 }
 
-impl Hash for StateVec {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        for &val in self.re.iter() {
-            f64_percision_repr(val).hash(state);
-        }
-        for &val in self.im.iter() {
-            f64_percision_repr(val).hash(state);
-        }
-    }
-}
-impl PartialOrd for StateVec {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-impl Ord for StateVec {
-    fn cmp(&self, other: &Self) -> Ordering {
-        for (a, b) in self.re.iter().zip(other.re.iter()) {
-            let ord = f64_percision_repr(*a).cmp(&f64_percision_repr(*b));
-            if ord != Ordering::Equal {
-                return ord;
-            }
-        }
-        for (a, b) in self.im.iter().zip(other.im.iter()) {
-            let ord = f64_percision_repr(*a).cmp(&f64_percision_repr(*b));
-            if ord != Ordering::Equal {
-                return ord;
-            }
-        }
-        Ordering::Equal
-    }
-}
+// impl Hash for StateVec {
+//     fn hash<H: Hasher>(&self, state: &mut H) {
+//         for &val in self.re.iter() {
+//             val.percision_repr().hash(state);
+//         }
+//         for &val in self.im.iter() {
+//             val.percision_repr().hash(state);
+//         }
+//     }
+// }
+// impl PartialOrd for StateVec {
+//     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+//         Some(self.cmp(other))
+//     }
+// }
+// impl Ord for StateVec {
+//     fn cmp(&self, other: &Self) -> Ordering {
+//         for (a, b) in self.re.iter().zip(other.re.iter()) {
+//             let ord = a.percision_repr().cmp(&b.percision_repr());
+//             if ord != Ordering::Equal {
+//                 return ord;
+//             }
+//         }
+//         for (a, b) in self.im.iter().zip(other.im.iter()) {
+//             let ord = a.percision_repr().cmp(&b.percision_repr());
+//             if ord != Ordering::Equal {
+//                 return ord;
+//             }
+//         }
+//         Ordering::Equal
+//     }
+// }
 
 impl std::fmt::Display for StateVec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[")?;
         for (i, a) in self.re.iter().zip(self.im.iter()).enumerate() {
             if i > 0 { write!(f, ", ")?; }
-            if a.1.abs() < F64_PERCISION_EPSILON {
+            if a.1.near_zero() {
                 write!(f, "{:.4}", a.0)?;
-            } else if a.0.abs() < F64_PERCISION_EPSILON {
+            } else if a.0.near_zero() {
                 write!(f, "{:.4}j", a.1)?;
             } else {
                 write!(f, "{:.4}{:+.4}j", a.0, a.1)?;
@@ -73,9 +74,9 @@ impl std::fmt::Debug for StateVec {
         write!(f, "[")?;
         for (i, a) in self.re.iter().zip(self.im.iter()).enumerate() {
             if i > 0 { write!(f, ", ")?; }
-            if a.1.abs() < F64_PERCISION_EPSILON {
+            if a.1.near_zero() {
                 write!(f, "{:?}", a.0)?;
-            } else if a.0.abs() < F64_PERCISION_EPSILON {
+            } else if a.0.near_zero() {
                 write!(f, "{:?}j", a.1)?;
             } else {
                 write!(f, "{:?}{:+?}j", a.0, a.1)?;
@@ -85,34 +86,34 @@ impl std::fmt::Debug for StateVec {
     }
 }
 
-impl PartialEq for StateVec {
-    fn eq(&self, other: &Self) -> bool {
-        // StateVecs are considered equal if their real and imaginary components
-        // are element-wise equal according to the precision logic.
-        if self.re.len() != other.re.len() || self.im.len() != other.im.len() {
-            return false;
-        }
+// impl PartialEq for StateVec {
+//     fn eq(&self, other: &Self) -> bool {
+//         // StateVecs are considered equal if their real and imaginary components
+//         // are element-wise equal according to the precision logic.
+//         if self.re.len() != other.re.len() || self.im.len() != other.im.len() {
+//             return false;
+//         }
 
-        for i in 0..self.re.len() {
-            if f64_percision_repr(self.re[i]) != f64_percision_repr(other.re[i]) {
-                return false;
-            }
-        }
+//         for i in 0..self.re.len() {
+//             if self.re[i].percision_repr() != other.re[i].percision_repr() {
+//                 return false;
+//             }
+//         }
 
-        for i in 0..self.im.len() {
-            if f64_percision_repr(self.im[i]) != f64_percision_repr(other.im[i]) {
-                return false;
-            }
-        }
+//         for i in 0..self.im.len() {
+//             if self.im[i].percision_repr() != other.im[i].percision_repr() {
+//                 return false;
+//             }
+//         }
 
-        true
-    }
-}
+//         true
+//     }
+// }
 
-impl Eq for StateVec {}
+// impl Eq for StateVec {}
 
 impl StateVec {
-    pub fn new(re: Vec<f64>, im: Vec<f64>) -> Self {
+    pub fn new(re: Vec<Qreal>, im: Vec<Qreal>) -> Self {
         assert_eq!(
             re.len(),
             im.len(),
@@ -130,8 +131,8 @@ impl StateVec {
             .expect("Number of qubits too large, resulting in overflow for state vector size.");
         // assert!(size > 0, "State vector size must be greater than 0");
         Self {
-            re: vec![0.0; size].into_boxed_slice(),
-            im: vec![0.0; size].into_boxed_slice(),
+            re: vec![0.0.into(); size].into_boxed_slice(),
+            im: vec![0.0.into(); size].into_boxed_slice(),
         }
     }
     // pub fn get_permutation(&self) -> Permut32 {
@@ -163,7 +164,7 @@ impl StateVec {
     pub fn qubit_equiv(&mut self, q1: u8, q2: u8) -> bool {
         for indices in qubit_matrix_indices2(self.nqubits(), [q1, q2]) {
             let vec = self.access(indices);
-            if cmplx64_to_fixpoint(vec[1]) != cmplx64_to_fixpoint(vec[2]) { return false; }
+            if vec[1] != vec[2] { return false; }
         }
         true
     }
@@ -175,8 +176,8 @@ impl StateVec {
         let mut oi = order_info::OrderInfo::new(nqubits as usize);
         
         oi.sort_eqclass_by_key(0, |&q| {
-            let a = cmplx64_to_fixpoint(self.at(1 << q));
-            let b = cmplx64_to_fixpoint(self.at(((1 << self.nqubits()) - 1) & !(1 << q)));
+            let a = self.at(1 << q);
+            let b = self.at(((1 << self.nqubits()) - 1) & !(1 << q));
             [a.re, a.im, b.re, b.im]
         });
 
@@ -209,7 +210,7 @@ impl StateVec {
                 index *= mask.count_ones() as usize + 1;
                 index += (mask & i).count_ones() as usize;
             }
-            table[index] = unsafe { table[index].unchecked_add(cmplx64_u64(self.at(i as usize))) };
+            table[index] = unsafe { table[index].unchecked_add(make_hash(self.at(i as usize))) };
         }
         
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
@@ -228,65 +229,65 @@ impl StateVec {
                         p != (q as usize) && i & (1 << p) != 0
                     ).count()));
             let h = map.entry(vec).or_insert(Default::default());
-            *h = unsafe { h.unchecked_add(cmplx64_u64(self.at(i))) };
+            *h = unsafe { h.unchecked_add(make_hash(self.at(i))) };
         }
         
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         map.hash(&mut hasher);
         hasher.finish()
     }
-    pub fn compare_qubits(&self, a: u8, b: u8) -> Ordering {
-        let value = self.at(1 << a) - self.at(1 << b);
-        if value.modulus() > F64_PERCISION_EPSILON {
-            return if value.re > 0.0 { Ordering::Greater } else { Ordering::Less };
-        }
-        let mask = (1 << self.nqubits()) - 1;
-        let value = self.at(mask & !(1 << a)) - self.at(mask & !(1 << b));
-        if value.modulus() > F64_PERCISION_EPSILON {
-            return if value.re > 0.0 { Ordering::Greater } else { Ordering::Less };
-        }
+    // pub fn compare_qubits(&self, a: u8, b: u8) -> Ordering {
+    //     let value = self.at(1 << a) - self.at(1 << b);
+    //     if !value.re.near_zero() || !value.im.near_zero() {
+    //         return if value.re > 0.0 { Ordering::Greater } else { Ordering::Less };
+    //     }
+    //     let mask = (1 << self.nqubits()) - 1;
+    //     let value = self.at(mask & !(1 << a)) - self.at(mask & !(1 << b));
+    //     if !value.re.near_zero() || !value.im.near_zero() {
+    //         return if value.re > 0.0 { Ordering::Greater } else { Ordering::Less };
+    //     }
 
-        let mut aset = SmallVec::<[(i64,i64); 8]>::new();
-        let mut bset = SmallVec::<[(i64,i64); 8]>::new();
-        for i in 0u8..(self.nqubits() as u8) {
-            if i != a {
-                let v = cmplx64_to_fixpoint(self.at((1 << a) | (1 << i)));
-                aset.push((v.re, v.im));
-            }
-            if i != b {
-                let v = cmplx64_to_fixpoint(self.at((1 << b) | (1 << i)));
-                bset.push((v.re, v.im));
-            }
-        }
-        aset.sort();
-        bset.sort();
+    //     let mut aset = SmallVec::<[(i64,i64); 8]>::new();
+    //     let mut bset = SmallVec::<[(i64,i64); 8]>::new();
+    //     for i in 0u8..(self.nqubits() as u8) {
+    //         if i != a {
+    //             let v = Qreal::complex_to_i64(self.at((1 << a) | (1 << i)));
+    //             aset.push((v.re, v.im));
+    //         }
+    //         if i != b {
+    //             let v = Qreal::complex_to_i64(self.at((1 << b) | (1 << i)));
+    //             bset.push((v.re, v.im));
+    //         }
+    //     }
+    //     aset.sort();
+    //     bset.sort();
 
-        let result = aset.cmp(&bset);
-        if result.is_ne() {
-            return result;
-        }
+    //     let result = aset.cmp(&bset);
+    //     if result.is_ne() {
+    //         return result;
+    //     }
 
-        let mut aset = SmallVec::<[(i64,i64); 8]>::new();
-        let mut bset = SmallVec::<[(i64,i64); 8]>::new();
-        for i in 0u8..(self.nqubits() as u8) {
-            if i != a {
-                let v = cmplx64_to_fixpoint(self.at(mask & !(1 << a) & !(1 << i)));
-                aset.push((v.re, v.im));
-            }
-            if i != b {
-                let v = cmplx64_to_fixpoint(self.at(mask & !(1 << b) & !(1 << i)));
-                bset.push((v.re, v.im));
-            }
-        }
-        aset.sort();
-        bset.sort();
-        let result = aset.cmp(&bset);
-        if result.is_ne() {
-            return result;
-        }
+    //     let mut aset = SmallVec::<[(i64,i64); 8]>::new();
+    //     let mut bset = SmallVec::<[(i64,i64); 8]>::new();
+    //     for i in 0u8..(self.nqubits() as u8) {
+    //         if i != a {
+    //             let v = Qreal::complex_to_i64(self.at(mask & !(1 << a) & !(1 << i)));
+    //             aset.push((v.re, v.im));
+    //         }
+    //         if i != b {
+    //             let v = Qreal::complex_to_i64(self.at(mask & !(1 << b) & !(1 << i)));
+    //             bset.push((v.re, v.im));
+    //         }
+    //     }
+    //     aset.sort();
+    //     bset.sort();
+    //     let result = aset.cmp(&bset);
+    //     if result.is_ne() {
+    //         return result;
+    //     }
 
-        return Ordering::Equal;
-    }
+    //     return Ordering::Equal;
+    // }
 }
 
 thread_local! {
@@ -310,7 +311,10 @@ pub fn reserve_state_vec_cache(size: usize) {
 impl StateVec {
     #[new]
     pub fn new_py(re: Vec<f64>, im: Vec<f64>) -> Self {
-        Self::new(re, im)
+        Self::new(
+            re.into_iter().map(|a| Qreal::from(a)).collect(), 
+            im.into_iter().map(|a| Qreal::from(a)).collect()
+        )
     }
 
     pub fn hash_value(&self) -> u64 {
@@ -321,7 +325,7 @@ impl StateVec {
 
     #[staticmethod]
     pub fn random(num_qubits: u32) -> Self {
-        Self::from_random_symmetric(&mut StdRng::from_os_rng(), num_qubits)
+        Self::from_random(&mut StdRng::from_os_rng(), num_qubits)
     }
     
     #[staticmethod]
@@ -353,55 +357,45 @@ impl StateVec {
             return;
         }
 
-        let mut norm_sq = 0.0;
-        let mut first_non_zero_index = None;
+        let mut norm_sq = Qreal::from(0.0);
         for i in 0..self.len() {
             let norm = self.re[i] * self.re[i] + self.im[i] * self.im[i];
             norm_sq += norm;
-            if norm > F64_PERCISION_EPSILON {
-                if first_non_zero_index.is_none() {
-                    first_non_zero_index = Some(i);
-                }
-            }
         }
-
-        if let Some(first_index) = first_non_zero_index {
-            let mut unit = num_complex::c64(self.re[first_index], self.im[first_index]);
-            unit = unit.norm() / (unit * norm_sq.sqrt());
-            assert!(unit.is_finite() && unit.modulus() >= F64_PERCISION_EPSILON, "Normalization unit is effectively zero.");
-            for i in 0..self.len() {
-                let r = num_complex::c64(self.re[i], self.im[i]) * unit;
-                self.re[i] = r.re;
-                self.im[i] = r.im;
-            }
-        } else {
-            panic!("State vector is effectively all zeros. Cannot normalize.");
+        let norm = norm_sq.sqrt();
+        for i in 0..self.len() {
+            self.re[i] /= norm;
+            self.im[i] /= norm;
         }
+        self.normalize_arg();
     }
     pub fn normalize_arg(&mut self) {
-        let mut unit = num_complex::c64(self.re[0], self.im[0]);
-        if unit.modulus() < F64_PERCISION_EPSILON {
-            unit = num_complex::c64(*self.re.last().unwrap(), *self.im.last().unwrap());
-            if unit.modulus() < F64_PERCISION_EPSILON {
+        let mut unit = Qcplx::new(self.re[0], self.im[0]);
+        if unit.re.near_zero() && unit.im.near_zero() {
+            unit = Qcplx::new(*self.re.last().unwrap(), *self.im.last().unwrap());
+            if unit.re.near_zero() && unit.im.near_zero() {
                 unit = (0..self.re.len()).map(|i| self.at(i)).sum();
-                unit /= unit.norm();
+                unit /= unit.norm_sqr().sqrt();
             }
         }
-        unit = unit.norm() / unit;
+        unit = unit.inv() * unit.norm_sqr().sqrt();
         for i in 0..self.len() {
-            let r = num_complex::c64(self.re[i], self.im[i]) * unit;
+            let r = Qcplx::new(self.re[i], self.im[i]) * unit;
             self.re[i] = r.re;
             self.im[i] = r.im;
         }
-        self.im[0] = 0.0;
+        self.im[0] = 0.0.into();
     }
 
     pub fn __getitem__<'a>(&self, index: usize) -> Complex64 {
-        self.at(index)
+        let v = self.at(index);
+        num_complex::c64(v.re, v.im)
     }
 
     pub fn __setitem__(&mut self, index: usize, value: Complex64) {
-        self.set(index, value);
+        self.set(index, num_complex::Complex::new(
+            Qreal::from(value.re), 
+            Qreal::from(value.im)));
     }
 
     pub fn __imul__(slf: &Bound<'_, Self>, other: Instr32) {
@@ -415,35 +409,32 @@ impl StateVec {
         }
     }
     pub fn check(&self) -> bool {
-        let mut norm_sq = 0.0;
+        let mut norm_sq = Qreal::from(0.0);
         for i in 0..self.len() {
-            if !self.re[i].is_finite() || !self.im[i].is_finite() {
-                return false;
-            }
             norm_sq += self.re[i] * self.re[i] + self.im[i] * self.im[i];
         }
-        (norm_sq - 1.0).abs() < F64_PERCISION_EPSILON
+        (norm_sq - 1.0.into()).near_zero()
     }
 }
-type Matrix8 = nalgebra::SMatrix<Complex64, 8, 8>;
-type Vector8 = nalgebra::SVector<Complex64, 8>;
+type Matrix8 = nalgebra::SMatrix<Qcplx, 8, 8>;
+type Vector8 = nalgebra::SVector<Qcplx, 8>;
 
 impl StateVec {
-    pub fn at(&self, index: usize) -> Complex64 {
-        num_complex::c64(self.re[index], self.im[index])
+    pub fn at(&self, index: usize) -> Qcplx {
+        Qcplx::new(self.re[index], self.im[index])
     }
 
-    pub fn set(&mut self, index: usize, value: Complex64) {
+    pub fn set(&mut self, index: usize, value: Qcplx) {
         self.re[index] = value.re;
         self.im[index] = value.im;
     }
-    pub fn access<const N: usize>(&self, indices: [usize; N]) -> [Complex64; N] {
+    pub fn access<const N: usize>(&self, indices: [usize; N]) -> [Qcplx; N] {
         array::from_fn(|i| {
             let index = indices[i];
-            num_complex::c64(self.re[index], self.im[index])
+            Qcplx::new(self.re[index], self.im[index])
         })
     }
-    pub fn update<const N: usize>(&mut self, indices: [usize; N], values: [Complex64; N]) {
+    pub fn update<const N: usize>(&mut self, indices: [usize; N], values: [Qcplx; N]) {
         for i in 0..N {
             let index = indices[i];
             let value = values[i];
@@ -462,11 +453,11 @@ impl StateVec {
             });
         }
     }
-    pub fn multiply(&mut self, qubits: &[u8], matrix: &DMatrix<Complex64>) {
+    pub fn multiply(&mut self, qubits: &[u8], matrix: &DMatrix<Qcplx>) {
         match qubits {
             [i] => {
                 assert!(matrix.nrows() == 2 && matrix.ncols() == 2);
-                let matrix: Matrix2<Complex64> = matrix.fixed_view::<2,2>(0, 0).into();
+                let matrix: Matrix2<Qcplx> = matrix.fixed_view::<2,2>(0, 0).into();
                 for a in indices::qubit_matrix_indices1(self.nqubits(), [*i]) {
                     let mut vec = Vector2::from(self.access(a));
                     vec = matrix * vec;
@@ -475,7 +466,7 @@ impl StateVec {
             }
             [i, j] => {
                 assert!(matrix.nrows() == 4 && matrix.ncols() == 4);
-                let matrix: Matrix4<Complex64> = matrix.fixed_view::<4,4>(0, 0).into();
+                let matrix: Matrix4<Qcplx> = matrix.fixed_view::<4,4>(0, 0).into();
                 for a in indices::qubit_matrix_indices2(self.nqubits(), [*i, *j]) {
                     let mut vec = Vector4::from(self.access(a));
                     vec = matrix * vec;
@@ -509,9 +500,9 @@ impl StateVec {
             .checked_shl(num_qubits)
             .expect("Number of qubits too large, resulting in overflow for state vector size.");
 
-        // Generate random f64 values, typically in the range [0.0, 1.0).
-        let re_vec: Vec<f64> = (0..size).map(|_| rng.random::<f64>()).collect();
-        let im_vec: Vec<f64> = (0..size).map(|_| rng.random::<f64>()).collect();
+        // Generate random Qreal values, typically in the range [0.0, 1.0).
+        let re_vec: Vec<Qreal> = (0..size).map(|_| rng.random::<f64>().into()).collect();
+        let im_vec: Vec<Qreal> = (0..size).map(|_| rng.random::<f64>().into()).collect();
 
         // Unsafe is required by AliasPtr::from_box_slice.
         // StateVec takes ownership of the boxed slices, ensuring the data remains valid
@@ -532,16 +523,16 @@ impl StateVec {
             .expect("Number of qubits too large, resulting in overflow for state vector size.");
 
         let re_values = (0..num_qubits + 1)
-            .map(|_| rng.random::<f64>())
+            .map(|_| Qreal::from(rng.random::<f64>()))
             .collect::<Vec<_>>();
         let im_values = (0..num_qubits + 1)
-            .map(|_| rng.random::<f64>())
+            .map(|_| Qreal::from(rng.random::<f64>()))
             .collect::<Vec<_>>();
 
-        let re_vec: Vec<f64> = (0..size)
+        let re_vec: Vec<Qreal> = (0..size)
             .map(|i| re_values[i.count_ones() as usize])
             .collect::<Vec<_>>();
-        let im_vec: Vec<f64> = (0..size)
+        let im_vec: Vec<Qreal> = (0..size)
             .map(|i| im_values[i.count_ones() as usize])
             .collect::<Vec<_>>();
         let mut state_vec = Self {
@@ -552,23 +543,14 @@ impl StateVec {
         state_vec.normalize();
         state_vec
     }
-    pub fn approx_eq(&self, other: &Self, epsilon: f64) -> bool {
-        if self.len() != other.len() {
-            return false;
-        }
-        
-        (0..self.len()).map(|i| {
-            (self.re[i] - other.re[i]).abs() + (self.im[i] - other.im[i]).abs() 
-        }).sum::<f64>() < epsilon
-    }
 }
 
 
 pub mod indices;
 mod gates;
 
-fn cmplx64_u64(val: Complex64) -> u64 {
+fn make_hash<T: Hash>(val: T) -> u64 {
     let mut hasher = DefaultHasher::new();
-    cmplx64_to_fixpoint(val).hash(&mut hasher);
+    val.hash(&mut hasher);
     hasher.finish()
 }

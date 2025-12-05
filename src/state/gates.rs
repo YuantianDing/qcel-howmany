@@ -1,9 +1,8 @@
-use std::{collections::HashMap, f64::consts::PI, sync::LazyLock};
+use std::{collections::HashMap, sync::LazyLock};
 
 use nohash_hasher::BuildNoHashHasher;
-use numpy::Complex64;
 
-use crate::{circ::{gates, Gate16}, state::{indices::{qubit_matrix_indices1, qubit_matrix_indices2}, StateVec}};
+use crate::{Qreal, circ::{Gate16, gates}, state::{StateVec, indices::{qubit_matrix_indices1, qubit_matrix_indices2}}};
 
 
 
@@ -21,8 +20,8 @@ fn perform_h_gate(state: &mut StateVec, qubits: &[u8]) {
     for indices in qubit_matrix_indices1(state.nqubits(), qubits.try_into().unwrap()) {
         let mut vec = state.access(indices);
         let (a, b) = (vec[0], vec[1]);
-        vec[0] = (a + b) / 2.0f64.sqrt();
-        vec[1] = (a - b) / 2.0f64.sqrt();
+        vec[0] = (a + b) * Qreal::FRAC_1_SQRT_2;
+        vec[1] = (a - b) * Qreal::FRAC_1_SQRT_2;
         state.update(indices, vec);
     }
 }
@@ -30,7 +29,7 @@ fn perform_h_gate(state: &mut StateVec, qubits: &[u8]) {
 fn perform_s_gate(state: &mut StateVec, qubits: &[u8]) {
     for indices in qubit_matrix_indices1(state.nqubits(), qubits.try_into().unwrap()) {
         let mut vec = state.access(indices);
-        vec[1] *= Complex64::from_polar(1.0, PI / 2.0);
+        vec[1] *= Qreal::IM_UNIT;
         state.update(indices, vec);
     }
 }
@@ -38,7 +37,7 @@ fn perform_s_gate(state: &mut StateVec, qubits: &[u8]) {
 fn perform_sdg_gate(state: &mut StateVec, qubits: &[u8]) {
     for indices in qubit_matrix_indices1(state.nqubits(), qubits.try_into().unwrap()) {
         let mut vec = state.access(indices);
-        vec[1] *= Complex64::from_polar(1.0, -PI / 2.0);
+        vec[1] *= -Qreal::IM_UNIT;
         state.update(indices, vec);
     }
 }
@@ -46,7 +45,7 @@ fn perform_sdg_gate(state: &mut StateVec, qubits: &[u8]) {
 fn perform_t_gate(state: &mut StateVec, qubits: &[u8]) {
     for indices in qubit_matrix_indices1(state.nqubits(), qubits.try_into().unwrap()) {
         let mut vec = state.access(indices);
-        vec[1] *= Complex64::from_polar(1.0, PI / 4.0);
+        vec[1] *= Qreal::EXP_I_FRAC_PI_4;
         state.update(indices, vec);
     }
 }
@@ -54,7 +53,7 @@ fn perform_t_gate(state: &mut StateVec, qubits: &[u8]) {
 fn perform_tdg_gate(state: &mut StateVec, qubits: &[u8]) {
     for indices in qubit_matrix_indices1(state.nqubits(), qubits.try_into().unwrap()) {
         let mut vec = state.access(indices);
-        vec[1] *= Complex64::from_polar(1.0, -PI / 4.0);
+        vec[1] *= Qreal::EXP_I_FRAC_PI_4.conj();
         state.update(indices, vec);
     }
 }
@@ -62,7 +61,7 @@ fn perform_tdg_gate(state: &mut StateVec, qubits: &[u8]) {
 fn perform_z_gate(state: &mut StateVec, qubits: &[u8]) {
     for indices in qubit_matrix_indices1(state.nqubits(), qubits.try_into().unwrap()) {
         let mut vec = state.access(indices);
-        vec[1] *= -1.0;
+        vec[1] = -vec[1];
         state.update(indices, vec);
     }
 }

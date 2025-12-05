@@ -4,8 +4,8 @@ use derive_more::Display;
 use either::Either;
 use nalgebra::DMatrix;
 use nohash_hasher::BuildNoHashHasher;
-use num_complex::Complex64;
-use numpy::{PyArray2, PyArrayLike2, ToPyArray};
+use crate::Qcplx;
+use numpy::{Complex64, PyArray2, PyArrayLike2, ToPyArray};
 use pyo3::PyResult;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use serde::{Deserialize, Serialize, ser::SerializeStruct};
@@ -14,7 +14,7 @@ use spin::RwLock;
 
 use crate::{
     circ::{Argument, Instr32, Instruction, gates::initial_gates, param::{NumericError, evaluate_with_pi}},
-    defs::cmplx64mat_to_fixpoint,
+    Qreal,
     utils::JoinOptionIter,
 };
 
@@ -23,14 +23,14 @@ use crate::{
 pub struct GateData {
     pub name: String,
     pub params: Vec<String>,
-    pub matrix: DMatrix<Complex64>,
+    pub matrix: DMatrix<Qcplx>,
     pub adjoint: Option<Gate16>,
 }
 
 impl PartialEq for GateData {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
-            && cmplx64mat_to_fixpoint(&self.matrix) == cmplx64mat_to_fixpoint(&other.matrix)
+            && self.matrix == other.matrix
     }
 }
 
@@ -41,13 +41,13 @@ impl std::hash::Hash for GateData {
         if self.matrix.nrows() == 0 || self.matrix.ncols() == 0 {
             self.name.hash(state);
         } else {
-            cmplx64mat_to_fixpoint(&self.matrix).hash(state);
+            self.matrix.hash(state);
         }
     }
 }
 
 impl GateData {
-    pub fn new(name: String, params: Vec<String>, matrix: DMatrix<Complex64>) -> Self {
+    pub fn new(name: String, params: Vec<String>, matrix: DMatrix<Qcplx>) -> Self {
         Self {
             name,
             params,
@@ -94,7 +94,7 @@ impl<'de> Deserialize<'de> for Gate16 {
 
 
 impl Gate16 {
-    pub fn new(name: String, params: Vec<String>, matrix: DMatrix<Complex64>) -> Self {
+    pub fn new(name: String, params: Vec<String>, matrix: DMatrix<Qcplx>) -> Self {
         assert!(
             matrix.nrows().is_power_of_two(),
             "Matrix must have a number of rows that is a power of two"
@@ -124,7 +124,7 @@ impl Gate16 {
         INSTRUCTION_SET.read()[self.0 as usize].params.clone()
     }
 
-    pub fn matrix<T>(&self, f: impl FnOnce(&DMatrix<Complex64>) -> T) -> T {
+    pub fn matrix<T>(&self, f: impl FnOnce(&DMatrix<Qcplx>) -> T) -> T {
         f(&INSTRUCTION_SET.read()[self.0 as usize].matrix)
     }
     pub fn data<T>(&self, f: impl FnOnce(&GateData) -> T) -> T {
@@ -143,7 +143,7 @@ impl Gate16 {
                 let gate = Gate16::new(
                     self.name() + "†",
                     self.params(),
-                    self.matrix(|m| m.adjoint())
+                    self.matrix(|m| m.transpose().map(|c| c.conj()))
                 );
                 INSTRUCTION_SET.write()[self.0 as usize].adjoint = Some(gate);
                 gate
@@ -169,7 +169,9 @@ impl Gate16 {
     #[gen_stub(skip)]
     #[new]
     pub fn new_py(name: String, params: Vec<String>, matrix: PyArrayLike2<Complex64>) -> Self {
-        Self::new(name, params, matrix.as_matrix().into())
+        Self::new(name, params, matrix.as_matrix().map(|a| 
+            Qcplx::new(a.re.into(), a.im.into())
+        ).into())
     }
 
     #[staticmethod]
@@ -200,7 +202,7 @@ impl Gate16 {
 
     #[getter(matrix)]
     pub fn matrix_py<'py>(&self, py: pyo3::Python<'py>) -> pyo3::Bound<'py, PyArray2<Complex64>> {
-        self.matrix(|m| <DMatrix<Complex64> as ToPyArray>::to_pyarray(m, py).to_owned())
+        self.matrix(|m| <DMatrix<Complex64> as ToPyArray>::to_pyarray(&m.map(|m| num_complex::c64(m.re, m.im)), py).to_owned())
     }
     
     #[getter(nqargs)]

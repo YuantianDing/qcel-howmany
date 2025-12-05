@@ -38,7 +38,8 @@ impl std::fmt::Display for CircTriple {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, derive_more::Display, Clone, PartialEq, Eq)]
+#[display("CircuitECC {{{}}}", self.circuits.iter().join_option(", ", "", ""))]
 pub struct CircuitECC {
     pub size: usize,
     pub front_gates: LinearSet<Instr32>,
@@ -63,7 +64,8 @@ impl CircuitECC {
     }
 
     pub fn simplify(&self) -> super::ECC {
-        let result = self.circuits.iter().map(|triple| triple.simplify()).collect_vec();
+        let mut result = self.circuits.iter().map(|triple| triple.simplify()).collect_vec();
+        result.sort();
         let set: BTreeSet<_> = result[0].0.iter().flat_map(|a| a.1.iter().cloned()).collect();
         let uniform_inv = Permut32::from_iter_with_ext(result[0].1.len(), set.into_iter());
         let uniform = uniform_inv.inv();
@@ -123,17 +125,17 @@ impl Evaluator {
     }
     pub fn evaluate_multiple(&self, instrs: &[Instr32]) -> (StateVec, SmallVec<[(Permut32, Permut32); 1]>, StateVec) {
         let mut state = self.initial_state.clone();
-        let mut mask = 0u8;
+        // let mut mask = 0u8;
         for instr in instrs.iter() {
             state.apply(&instr.1, instr.0);
-            mask |= instr.arg_mask();
+            // mask |= instr.arg_mask();
         }
         
         state.normalize_arg();
         let oi = state.get_orderinfo();
         let mut true_back_state = None;
         let mut perms = SmallVec::new();
-        for back_perm_inv in oi.as_perms_mask(mask) {
+        for back_perm_inv in oi.as_perms() {
             let back_perm = back_perm_inv.inv();
 
             let mut backstate = self.backtrack_state.clone();
@@ -196,15 +198,18 @@ pub struct RawECCs {
     #[deref]
     inner: HashMap<u64, CircuitECC, BuildNoHashHasher<u64>>,
     pub nqubits: usize,
+    pub drop: bool,
 }
 
 
 impl std::ops::Drop for RawECCs {
     fn drop(&mut self) {
-        for (_, instrs) in self.inner.iter_mut() {
-            for triple in instrs.circuits.iter_mut() {
-                unsafe {
-                    triple.circ.delete();
+        if self.drop {
+            for (_, instrs) in self.inner.iter_mut() {
+                for triple in instrs.circuits.iter_mut() {
+                    unsafe {
+                        triple.circ.delete();
+                    }
                 }
             }
         }
@@ -236,6 +241,7 @@ impl RawECCs {
             Entry::Vacant(v) => {
                 // println!("\t{instr}: {front_perm}, {back_perm} new value");
                 let new_point = circ.cons(instr);
+                assert!(instr_vec.len() > 0);
                 v.insert(CircuitECC {
                     size: instr_vec.len(),
                     front_gates: front_gates_iter.collect(),
@@ -290,8 +296,9 @@ impl RawECCs {
         let mut map = RawECCs {
             inner: Default::default(),
             nqubits: evaluator.nqubits(),
+            drop: false,
         };
-        map.inner.insert(evaluator.backtrack_state.hash_value(), CircuitECC::root(evaluator.nqubits()));
+        map.inner.insert(evaluator.evaluate(&[]).0.hash_value(), CircuitECC::root(evaluator.nqubits()));
         map
     }
     #[staticmethod]
@@ -334,6 +341,7 @@ impl RawECCs {
             }
             counters[0] += 1;
         }
+        map.drop = true;
         (map, counters)
     }
     #[staticmethod]
@@ -349,14 +357,14 @@ impl RawECCs {
             instr_vec.clear();
             instr_vec.extend(circ.iter().cloned());
             instr_vec.reverse();
-            let mask = instr_vec.iter().fold(0u8, |a, i| a | i.arg_mask());
+            // let mask = instr_vec.iter().fold(0u8, |a, i| a | i.arg_mask());
             
             if counters[0] % 400 == 0 {
                 println!("#{} Exploring {} ({} queued, {} ECCs, {} circs, {} circs perm)", counters[0], instr_vec.iter().join_option(" ", "", ""), queue.len(), map.len(), counters[1], counters[2]);
             }
             
             for instr in instrs.iter() {
-                if instr.pass_mask(mask).is_none() { continue; }
+                // if instr.pass_mask(mask).is_none() { continue; }
                 
                 instr_vec.push(instr.clone());
                 let (backstate, vec, _) = evaluator.evaluate_multiple(&instr_vec[..]);
@@ -364,7 +372,7 @@ impl RawECCs {
                 for (front_perm, back_perm) in vec {
                     if let Some(new_point) = map.add_entry(hash_value, front_perm, back_perm, &circ, &instr_vec) {
                         if instr_vec.len() < max_size { queue.push_back(new_point.clone()); }
-                        // println!("\t{}: {}, {} new value", instr, front_perm, back_perm);
+                        // println!("\t{}: {}, {} new value {}", instr, front_perm, back_perm, hash_value);
                     }
                     counters[2] += 1;
                 }
@@ -373,12 +381,15 @@ impl RawECCs {
             }
             counters[0] += 1;
         }
+        map.drop = true;
         (map, counters)
     }
 
     pub fn simplify(&self) -> super::ECCs {
+        let mut eccs: Vec<_> = self.inner.values().map(|a| a.simplify()).collect();
+        eccs.sort();
         super::ECCs {
-            eccs: self.inner.values().map(|a| a.simplify()).collect(),
+            eccs,
             nqubits: self.nqubits,
         }
     }
@@ -467,6 +478,35 @@ impl RawECCs {
             } else { None }
         })
     }
+
+    pub fn switch_evaluator(&self, new_evaluator: &Evaluator) -> RawECCs {
+        let mut new_map = RawECCs::new(new_evaluator);
+        for ecc in self.inner.values() {
+            let mut instrs = ecc.circuits[0].circ.iter().cloned().collect_vec();
+            let (backstate, _, _, _) = new_evaluator.evaluate(&instrs);
+            let hash = backstate.hash_value();
+            let mut result = CircuitECC {
+                size: instrs.len(),
+                front_gates: LinearSet::new(),
+                back_gates: LinearSet::new(),
+                circuits: vec![],
+            };
+
+            for triple in ecc.circuits.iter() {
+                let mut instrs = triple.circ.iter().cloned().collect_vec();
+                let (backstate, front_perm, back_perm, _) = new_evaluator.evaluate(&instrs);
+                assert!(backstate.hash_value() == hash, "Inconsistent ECC detected during evaluator switch");
+
+                result.circuits.push(CircTriple { front_perm, circ: triple.circ.clone(), back_perm });
+            }
+            if let Some(a) = new_map.inner.insert(hash, result) {
+                if a.size > 0 {
+                    panic!("Hash collision detected during evaluator switch: {:?} vs {:?}", a, ecc);
+                }
+            }
+        }
+        new_map
+    }
     
     // for i in 0..instrs.len() {
     //     for j in (i+1)..=instrs.len() {
@@ -493,18 +533,53 @@ mod test {
 
     use rand::{SeedableRng, rngs::StdRng};
 
-    use crate::{circ::{gates::{CX, CY, CZ, H, S, SDG, T, TDG, X, Y, Z}, Instr32}, identity::{eccproof::IdentityProver, idcircuit::IdentityCirc}, instr_vec, search::{double_perm_search::{CircTriple, Evaluator, RawECCs}, ECCs}, utils::JoinOptionIter};
+    use crate::{circ::{Instr32, gates::{CX, CY, CZ, H, S, SDG, T, TDG, X, Y, Z, h}}, identity::{eccproof::IdentityProver, idcircuit::IdentityCirc}, instr_vec, search::{ECCs, double_perm_search::{CircTriple, Evaluator, RawECCs}}, utils::JoinOptionIter};
 
     #[test]
-    fn test() {
+    fn test_eval() {
+        let evaluator1 = Evaluator::from_random(3, &mut rand::rngs::StdRng::from_seed([0; 32]));
+
+        let h1 = evaluator1.evaluate(&[h(0)]).0.hash_value();
+        let h2 = evaluator1.evaluate(&[h(1)]).0.hash_value();
+
+        assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn test_naive_equivalence() {
         let nqubits = 5;
-        let ngates = 6;
-        let use_eqclass = true;
-        let evaluator = Evaluator::from_random(nqubits, &mut StdRng::from_os_rng());
+        let ngates = 5;
+        let evaluator = Evaluator::from_random(nqubits, &mut rand::rngs::StdRng::from_seed([0; 32]));
         let (ecc1, _) = RawECCs::generate(&evaluator, vec![*H, *X, *TDG, *T, *CX], ngates);
         let (ecc2, _) = RawECCs::generate_naive(&evaluator, vec![*H, *X, *TDG, *T, *CX], ngates);
-        let ecc1 : HashSet<_> = ecc1.simplify().to_identity_circuits().into_iter().collect();
-        let ecc2 : HashSet<_> = ecc2.simplify().to_identity_circuits().into_iter().collect();
-        assert!(ecc2.is_subset(&ecc1));
+
+        for (_, ecc) in ecc2.iter() {
+            for (instrs, _) in &ecc.simplify().0 {
+                let (bv, f, p, _) = evaluator.evaluate(&instrs);
+                if !ecc1.contains_key(&bv.hash_value()) {
+                    for i in 1..=instrs.len() {
+                        let key = evaluator.evaluate(&instrs[..i]).0.hash_value();
+                        println!("{} => {:?}",
+                            instrs[..i].iter().join_option(" ", "", ""),
+                            ecc1.get(&key)
+                        );
+                    }
+                }
+                assert!(ecc1.contains_key(&bv.hash_value()));
+            }
+        }
+    }
+    #[test]
+    fn test_same_result() {
+        let nqubits = 5;
+        let ngates = 6;
+        let evaluator1 = Evaluator::from_random(nqubits, &mut rand::rngs::StdRng::from_seed([0; 32]));
+        let (ecc1, _) = RawECCs::generate(&evaluator1, vec![*H, *X, *TDG, *T, *CX], ngates);
+        let evaluator2 = Evaluator::from_random(nqubits, &mut rand::rngs::StdRng::from_seed([1; 32]));
+        let (ecc2, _) = RawECCs::generate(&evaluator2, vec![*H, *X, *TDG, *T, *CX], ngates);
+        assert_eq!(ecc1.len(), ecc2.len());
+
+        println!("{}", ecc1.switch_evaluator(&evaluator2).len());
+        println!("{}", ecc2.switch_evaluator(&evaluator1).len());
     }
 }

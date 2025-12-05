@@ -9,7 +9,6 @@ use std::fmt;
 use std::sync::LazyLock;
 
 use crate::circ::Gate16;
-use crate::defs::F64_PERCISION_EPSILON;
 // use crate::identity::circuit::CircGraph;
 use crate::{circ::Instr32, identity::circuit::Circ, state::StateVec};
 use colored::Colorize;
@@ -138,7 +137,7 @@ impl IdentityCirc {
         state1.apply_permutation(self.perm);
         state1.normalize_arg();
         
-        state1.approx_eq(&state2, 1e-8)
+        state1 == state2
     }
 
     pub fn __str__(&self) -> String {

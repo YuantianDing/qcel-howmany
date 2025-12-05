@@ -8,9 +8,10 @@ use rand::SeedableRng;
 fn main() {
     let nqubits = 5;
     let ngates = 6;
-    let evaluator = Evaluator::from_random(nqubits, &mut rand::rngs::StdRng::from_seed([0; 32]));
-    let (ecc1, _) = RawECCs::generate(&evaluator, vec![*H, *X, *TDG, *T, *CX], ngates);
-    println!("{} ECCS", ecc1.len())
+    let evaluator1 = Evaluator::from_random(nqubits, &mut rand::rngs::StdRng::from_seed([1; 32]));
+    let (ecc1, _) = RawECCs::generate(&evaluator1, vec![*H, *X, *TDG, *T, *CX], ngates);
+    println!("{}", ecc1.len());
+    // println!("{}", ecc1.switch_evaluator(&evaluator2).len());
     // let nqubits = 5;
     // let ngates = 6;
     // let use_eqclass = true;

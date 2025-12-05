@@ -1,9 +1,8 @@
 use std::{cell::LazyCell, sync::LazyLock};
 
 use nalgebra::DMatrix;
-use numpy::Complex64;
 
-use crate::circ::{Gate16, GateData, Instr32};
+use crate::{Qcplx, Qreal, circ::{Gate16, GateData, Instr32}};
 
 pub fn initial_gates() -> Vec<GateData> {
     vec![
@@ -11,164 +10,164 @@ pub fn initial_gates() -> Vec<GateData> {
             "i".to_string(),
             vec![],
             DMatrix::from_row_slice(2, 2, &[
-                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0),
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(1.0.into(), 0.0.into()),
             ])
         ),
         GateData::new(
             "h".to_string(),
             vec![],
             DMatrix::from_row_slice(2, 2, &[
-                Complex64::new(1.0 / 2f64.sqrt(), 0.0), Complex64::new(1.0 / 2f64.sqrt(), 0.0),
-                Complex64::new(1.0 / 2f64.sqrt(), 0.0), Complex64::new(-1.0 / 2f64.sqrt(), 0.0),
+                Qcplx::new(Qreal::FRAC_1_SQRT_2, 0.0.into()), Qcplx::new(Qreal::FRAC_1_SQRT_2, 0.0.into()),
+                Qcplx::new(Qreal::FRAC_1_SQRT_2, 0.0.into()), Qcplx::new(-Qreal::FRAC_1_SQRT_2, 0.0.into()),
             ])
         ),
         GateData::new(
             "x".to_string(),
             vec![],
             DMatrix::from_row_slice(2, 2, &[
-                Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0),
-                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(1.0.into(), 0.0.into()),
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
             ])
         ),
         GateData::new(
             "z".to_string(),
             vec![],
             DMatrix::from_row_slice(2, 2, &[
-                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(-1.0, 0.0),
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new((-1.0).into(), 0.0.into()),
             ])
         ),
         GateData::new(
             "y".to_string(),
             vec![],
             DMatrix::from_row_slice(2, 2, &[
-                Complex64::new(0.0, 0.0), Complex64::new(0.0, -1.0),
-                Complex64::new(0.0, 1.0), Complex64::new(0.0, 0.0),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), (-1.0).into()),
+                Qcplx::new(0.0.into(), 1.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
             ])
         ),
         GateData::new(
             "s".to_string(),
             vec![],
             DMatrix::from_row_slice(2, 2, &[
-                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(0.0, 1.0),
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 1.0.into()),
             ])
         ),
         GateData::new(
             "sdg".to_string(),
             vec![],
             DMatrix::from_row_slice(2, 2, &[
-                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(0.0, -1.0),
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), (-1.0).into()),
             ])
         ),
         GateData::new(
             "t".to_string(),
             vec![],
             DMatrix::from_row_slice(2, 2, &[
-                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(0.7071067811865476, 0.7071067811865475),
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qreal::frac(1, 4).expipi(),
             ])
         ),
         GateData::new(
             "tdg".to_string(),
             vec![],
             DMatrix::from_row_slice(2, 2, &[
-                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(0.7071067811865476, -0.7071067811865475),
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qreal::frac(1, 4).expipi().conj(),
             ])
         ),
         GateData::new(
             "cx".to_string(),
             vec![],
             DMatrix::from_row_slice(4, 4, &[
-                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(1.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
             ])
         ),
         GateData::new(
             "cz".to_string(),
             vec![],
             DMatrix::from_row_slice(4, 4, &[
-                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(-1.0, 0.0),
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new((-1.0).into(), 0.0.into()),
             ])
         ),
         GateData::new(
             "cy".to_string(),
             vec![],
             DMatrix::from_row_slice(4, 4, &[
-                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, -1.0),
-                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 1.0), Complex64::new(0.0, 0.0),
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), (-1.0).into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 1.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
             ])
         ),
         GateData::new(
             "cs".to_string(),
             vec![],
             DMatrix::from_row_slice(4, 4, &[
-                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 1.0),
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 1.0.into()),
             ])
         ),
         GateData::new(
             "csdg".to_string(),
             vec![],
             DMatrix::from_row_slice(4, 4, &[
-                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, -1.0),
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), (-1.0).into()),
             ])
         ),
         GateData::new(
             "swap".to_string(),
             vec![],
             DMatrix::from_row_slice(4, 4, &[
-                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0),
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()), Qcplx::new(1.0.into(), 0.0.into()),
             ])
         ),
         GateData::new(
             "t1/2".to_string(),
             vec![],
             DMatrix::from_row_slice(2, 2, &[
-                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::from_polar(1.0, std::f64::consts::FRAC_PI_4),
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qreal::frac(1, 8).expipi(),
             ])
         ),
         GateData::new(
             "tdg1/2".to_string(),
             vec![],
             DMatrix::from_row_slice(2, 2, &[
-                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::from_polar(1.0, -std::f64::consts::FRAC_PI_4),
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qreal::frac(1, 8).expipi().conj(),
             ])
         ),
         GateData::new(
             "rz".to_string(),
             vec!["pi/3".into()],
             DMatrix::from_row_slice(2, 2, &[
-                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::from_polar(1.0, std::f64::consts::FRAC_PI_3),
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qreal::frac(1, 3).expipi(),
             ])
         ),
         GateData::new(
             "rz".to_string(),
             vec!["-pi/3".into()],
             DMatrix::from_row_slice(2, 2, &[
-                Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0),
-                Complex64::new(0.0, 0.0), Complex64::from_polar(1.0, -std::f64::consts::FRAC_PI_3),
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), Qreal::frac(1, 4).expipi().conj(),
             ])
         ),
     ]

@@ -1,4 +1,18 @@
-pub(crate) mod defs;
+
+
+mod qreal_fixed64;
+mod qreal_f64;
+
+
+#[cfg(not(feature = "fixed64"))]
+pub(crate) type Qreal = qreal_f64::Qreal;
+#[cfg(feature = "fixed64")]
+pub(crate) type Qreal = qreal_fixed64::Qreal;
+#[cfg(not(feature = "fixed64"))]
+pub(crate) type Qcplx = qreal_f64::Qcplx;
+#[cfg(feature = "fixed64")]
+pub(crate) type Qcplx = qreal_f64::Qcplx;
+
 
 pub mod circ;
 pub mod search;

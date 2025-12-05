@@ -350,7 +350,7 @@ impl fmt::Display for Circ {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::circ::gates::{CX, H, S, SWAP, T};
+    use crate::circ::gates::{CX, H, S, SWAP, T, tdg};
     use smallvec::smallvec;
 
     fn h(q: u8) -> Instr32 {
@@ -375,12 +375,10 @@ mod tests {
 
     #[test]
     fn test_rotate_representative_simple_rotation() {
-        // H(0) T(0) -> should be canonical
         let circ1 = Circ::new_no_perm(vec![h(0), t(0)]);
         let rep1 = circ1.rotate_representative();
 
-        // T(0) H(0) -> should rotate to H(0) T(0)
-        let circ2 = Circ::new_no_perm(vec![t(0), h(0)]);
+        let circ2 = Circ::new_no_perm(vec![tdg(0), h(0)]);
         let rep2 = circ2.rotate_representative();
 
         assert_eq!(rep1, rep2);

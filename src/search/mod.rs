@@ -14,7 +14,7 @@ pub mod double_perm_search;
 
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
 #[pyo3::pyclass(eq, str)]
-#[derive(Debug, Deref, DerefMut, Index, From, Into, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Deref, DerefMut, Index, From, Into, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, PartialOrd, Ord)]
 pub struct ECC(pub Vec<(Vec<Instr32>, Permut32)>);
 
 impl ECC {
@@ -62,7 +62,7 @@ impl ECC {
 
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
 #[pyo3::pyclass(eq, str)]
-#[derive(Debug, Deref, DerefMut, Index, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Deref, DerefMut, Index, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, PartialOrd, Ord)]
 pub struct ECCs {
     #[deref]
     #[deref_mut]
