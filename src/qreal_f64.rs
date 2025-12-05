@@ -1,5 +1,4 @@
 use std::hash::{Hash, Hasher};
-use num_traits::Num;
 
 use num_complex::Complex;
 
@@ -179,6 +178,9 @@ impl Qreal {
     pub fn expipi(self) -> Qcplx {
         let angle = self.0 * std::f64::consts::PI;
         Qcplx::new(Qreal(angle.cos()), Qreal(angle.sin()))
+    }
+    pub fn loose_eq(self: Qreal, b: Qreal) -> bool {
+        (self.0 * ((1 << 8) as f64)) as i64 == (b.0 * ((1 << 8) as f64)) as i64 
     }
 }
 pub type Qcplx = Complex<Qreal>;

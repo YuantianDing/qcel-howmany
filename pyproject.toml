@@ -26,6 +26,8 @@ features = ["pyo3/extension-module"]
 [dependency-groups]
 dev = [
     "pandas>=2.0.3",
+    "pillow>=10.4.0",
+    "pylatexenc>=2.10",
     "tables>=3.8.0",
     "tqdm>=4.67.1",
 ]

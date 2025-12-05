@@ -6,7 +6,7 @@ use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use rayon::iter::ParallelIterator;
 use indicatif::ProgressIterator;
 
-use crate::{identity::{circuit::Circ, idcircuit::{IdentityCirc, IdentitySubcircuit}}, search::{ECCs, ECC}};
+use crate::{identity::{circuit::Circ, eccprove::proof::{Proof, ProofTracker}, idcircuit::{IdentityCirc, IdentitySubcircuit}}, search::{ECC, ECCs}, utils::FmtJoinIter};
 
 #[gen_stub_pyclass]
 #[pyo3::pyclass]
@@ -51,8 +51,14 @@ impl IdentityProver {
         identities.dedup();
         eprintln!("Proving Identities");
         for id in identities.into_iter().progress() {
-            prover.add_identity(id, 2, 50000);
+            prover.add_identity(id, 3, 50000);
         }
+        
+        // eprintln!("Removing redundant assumptions");
+        // while let Some(redundant_id) = prover.get_redundant_assumption() {
+        //     // panic!();
+        //     prover.assume.remove(redundant_id);
+        // }
 
         prover
     }
@@ -61,6 +67,51 @@ impl IdentityProver {
     }
     pub fn assumed_identities(&self) -> &Vec<IdentityCirc> {
         &self.assume
+    }
+    fn _get_redundant_assumption(&mut self) -> Option<usize> {
+        for id in 0..self.assume.len() {
+            let mut prover = Self {
+                assume: Vec::new(),
+                proved: HashMap::new(),
+                circ_map: HashMap::new(),
+            };
+            for (i, assumption) in self.assume.iter().enumerate() {
+                if i == id { continue; }
+                prover.assume.push(assumption.clone());
+                prover.proved.insert(assumption.clone(), ());
+                IdentitySubcircuit::subcircuit_splits(assumption).for_each(|(c1, c2)| {
+                    let (c1_rep, perm) = c1.representative_with_perm();
+                    let c2_permuted = c2.permut(perm);
+                    
+                    prover.circ_map.entry(c1_rep).or_default().push(c2_permuted.inverse());
+                });
+            }
+            if prover.prove_identity(self.assume[id].clone(), 11, 50000).is_none() {
+                return Some(id);
+            }
+        }
+        return None;
+    }
+    pub fn par_transition_pairs<'a>(
+        self: &IdentityProver,
+        identity: &'a IdentityCirc,
+        additional_size: usize,
+    ) -> Vec<(IdentityCirc, IdentityCirc)> {
+        IdentitySubcircuit::par_subcircuit_splits(identity).flat_map(move |(c1, c2)| {
+            let (c1_rep, perm) = c1.representative_with_perm();
+            let c1_reversed = c1_rep.inverse();
+            let c2_permuted = c2.permut(perm);
+            if let Some(c) = self.circ_map.get(&c1_rep) {
+                c.iter().filter_map(move |c| {
+                    if c.len() > additional_size + c1_rep.len() {
+                        return None
+                    }
+                    let id = (c + &c1_reversed).rotate_representative();
+                    let id2 = (c + &c2_permuted).rotate_representative();
+                    Some((id2, id))
+                }).collect_vec()
+            } else { Vec::new() }
+        }).collect()
     }
 }
 
@@ -150,12 +201,16 @@ impl IdentityProver {
     }
 
     pub fn prove_identity(&self, identity: IdentityCirc, additional_size: usize, count_limit: usize) -> Option<IdentityCirc> {
+        let (result, _) = self.prove_identity_with_visited(identity, additional_size, count_limit);
+        result
+    }
+
+    pub fn prove_identity_with_visited(&self, identity: IdentityCirc, additional_size: usize, count_limit: usize) -> (Option<IdentityCirc>, HashSet<IdentityCirc>) {
         let mut search_queue = vec![VecDeque::<IdentityCirc>::new(); additional_size + 1];
         let mut visited = HashSet::new();
 
         let min_size = identity.len();
         let max_size = additional_size + identity.len();
-        let mut counter = 0;
 
         search_queue[0].push_back(identity.clone());
         visited.insert(identity.clone());
@@ -171,20 +226,33 @@ impl IdentityProver {
                 }
                 visited.insert(new_id.clone());
                 if new_id.len() < min_size {
-                    return self.prove_identity(new_id, additional_size, count_limit);
+                    let (result, mut visited2) = self.prove_identity_with_visited(new_id, additional_size, count_limit);
+                    visited.extend(visited2.drain());
+                    return (result, visited);
                 } else if self.proved.contains_key(&new_id) {
-                    return None;
+                    return (None, visited);
                 }
                 search_queue[new_id.len() - min_size].push_back(new_id);
 
-                counter += 1;
-                if counter > count_limit {
-                    return Some(identity);
+                if visited.len() > count_limit {
+                    return (Some(identity), visited);
                 }
             }
         }
-        Some(identity)
+        (Some(identity), visited)
     }
+
+    pub fn export_proof(&self, identity: IdentityCirc, additional_size: usize, count_limit: usize) -> Option<Proof> {
+        let (result, visited) = self.prove_identity_with_visited(identity.clone(), additional_size, count_limit);
+        if result.is_some() { return None; }
+        let mut tracker = ProofTracker::new();
+        if tracker.prove(&identity, &self, additional_size, count_limit, &visited){
+            Some(Proof(tracker.export(identity.hash_value())))
+        } else {
+            panic!("Failed to export proof for proved identity");
+        }
+    }
+
     fn get_assumed(&self) -> Vec<IdentityCirc> {
         self.assumed_identities().clone()
     }
@@ -214,25 +282,37 @@ impl IdentityProver {
             .map_err(|e| pyo3::PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Failed to write postcard data: {}", e)))?;
         Ok(())
     }
+    
 }
 
+pub mod proof;
 
-fn available_system_memory() -> usize {
-  let contents=std::fs::read_to_string("/proc/meminfo").expect("Could not read /proc/meminfo");
-  let mem_info = contents.lines().find(|line| line.starts_with("MemAvailable")).expect("Could not find MemAvailable line");
-  let size = mem_info.split(" ").nth(3).expect("Found the size");
-  let available_mem: usize = size.parse().unwrap();
-  available_mem  // in kilobytes KB
-}
+#[cfg(test)]
+mod test {
+    use rand::SeedableRng;
 
-fn total_system_memory() -> usize {
-  let contents=std::fs::read_to_string("/proc/meminfo").expect("Could not read /proc/meminfo");
-  let mem_info = contents.lines().find(|line| line.starts_with("MemTotal")).expect("Could not find MemAvailable line");
-  let size = mem_info.split(" ").nth(7).expect("Found the size");
-  let total_mem: usize = size.parse().unwrap();
-  total_mem      // in kilobytes KB
-}
+    use crate::{circ::gates::*, identity::{circuit::Circ, eccprove::IdentityProver}, search::double_perm_search::{Evaluator, RawECCs}};
 
-fn memory_usage_rate() -> usize {
-    available_system_memory() * 100 / total_system_memory()
+    #[test]
+    fn test() {
+        let nqubits = 5;
+        let ngates = 3;
+        let evaluator1 = Evaluator::from_random(nqubits, &mut rand::rngs::StdRng::from_seed([1; 32]));
+        let (ecc1, _) = RawECCs::generate(&evaluator1, vec![*H, *X, *Y, *Z, *CX, *CY, *CZ, *S, *SDG, *T, *TDG], ngates);
+        let eccs = ecc1.simplify().filter_single();
+        let prover =  IdentityProver::build(eccs.as_slice());
+        // let prover: IdentityProver = postcard::from_io((
+        //     std::io::BufReader::new(std::fs::File::open(".cache/prover-common-clifford-t-3-5.prover").unwrap()),
+        //     &mut [0; 8192],
+        // )).unwrap().0;
+
+        for id in prover.assumed_identities() {
+            println!("{}", id);
+        }
+
+        let proof = prover.export_proof(
+            Circ::new_no_perm(vec![cx(0, 1), cy(0, 2), cx(0, 1), cy(0, 2)]).rotate_representative(), 5, 50000);
+
+        println!("{:?}", proof)
+    }
 }

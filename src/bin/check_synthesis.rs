@@ -1,7 +1,6 @@
 
 use indicatif::ProgressIterator;
-use itertools::Itertools;
-use quclif::{circ::gates::*, search::double_perm_search::{Evaluator, RawECCs}, utils::JoinOptionIter};
+use quclif::{circ::gates::*, search::double_perm_search::{Evaluator, RawECCs}, utils::FmtJoinIter};
 use rand::SeedableRng;
 
 fn main() {
@@ -33,8 +32,8 @@ fn main() {
 
     // assert!(bv0 == bv1);
     // println!("{} {}", fv0, fv1);
-    // println!("fv0: {} BV0: {}, perms0: {}", fv0.get_orderinfo(), bv0, perms0.iter().map(|(a, b)| format!("{a} {b}")).join_option(",", "", ""));
-    // println!("fv0: {} BV0: {}, perms0: {}", fv1.get_orderinfo(), bv1, perms1.iter().map(|(a, b)| format!("{a} {b}")).join_option(",", "", ""));
+    // println!("fv0: {} BV0: {}, perms0: {}", fv0.get_orderinfo(), bv0, perms0.iter().map(|(a, b)| format!("{a} {b}")).fjoin(","));
+    // println!("fv0: {} BV0: {}, perms0: {}", fv1.get_orderinfo(), bv1, perms1.iter().map(|(a, b)| format!("{a} {b}")).fjoin(","));
 
     for (_, ecc) in ecc2.iter().progress() {
         for (instrs, _) in &ecc.simplify().0 {
@@ -43,7 +42,7 @@ fn main() {
                 for i in 1..=instrs.len() {
                     let key = evaluator.evaluate(&instrs[..i]).0.hash_value();
                     println!("{} => {:?}",
-                        instrs[..i].iter().join_option(" ", "", ""),
+                        instrs[..i].iter().fjoin(" "),
                         ecc1.get(&key)
                     );
                 }
@@ -90,7 +89,7 @@ fn main() {
     // for problem in eccs.check() {
     //     eprintln!("Correctness Error:");
     //     for c in problem.circuits() {
-    //         eprintln!("\t{}", c.iter().join_option(" ", "", ""))
+    //         eprintln!("\t{}", c.iter().fjoin(" "))
     //     }
     // }
 

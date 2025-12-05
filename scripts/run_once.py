@@ -11,6 +11,6 @@ if __name__ == "__main__":
     ngates = int(sys.argv[2])
     file = f".cache/prover-{gate_set_name}-{ngates}-5.prover.json"
     if not os.path.exists(file):
-        print(f"Building prover for gate set '{gate_set_name}' with {ngates} gates.")
+        # print(f"Building prover for gate set '{gate_set_name}' with {ngates} gates.")
         build_prover(gate_set_name, ngates=ngates)
     show_rules_pdf(file)

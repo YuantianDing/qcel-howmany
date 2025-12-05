@@ -26,7 +26,7 @@ pub mod identity;
 use pyo3::prelude::*;
 use pyo3_stub_gen::define_stub_info_gatherer;
 
-use crate::identity::{circuit::Circ, eccproof::IdentityProver, idcircuit::IdentityCirc};
+use crate::identity::{circuit::Circ, eccprove::{IdentityProver, proof::Proof}, idcircuit::IdentityCirc};
 
 #[pyo3::pymodule]
 fn quclif(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -42,6 +42,7 @@ fn quclif(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Circ>()?;
     m.add_class::<IdentityCirc>()?;
     m.add_class::<IdentityProver>()?;
+    m.add_class::<Proof>()?;
     Ok(())
 }
 

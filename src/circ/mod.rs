@@ -9,7 +9,7 @@ pub use gate::*;
 use itertools::Itertools;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 
-use crate::{groups::permutation::Permut32, utils::JoinOptionIter};
+use crate::{groups::permutation::Permut32, utils::FmtJoinIter};
 pub mod param;
 
 #[gen_stub_pyclass]
@@ -152,8 +152,8 @@ impl Instruction {
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
 #[pyo3::pyclass]
 #[derive(Debug, Display, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-#[debug("{}({})", self.0, self.1.iter().join_option(", ", "", ""))]
-#[display("{}({})", self.0, self.1.iter().join_option(", ", "", ""))]
+#[debug("{}({})", self.0, self.1.iter().fjoin(", "))]
+#[display("{}({})", self.0, self.1.iter().fjoin(", "))]
 #[pyo3(name = "Instr")]
 pub struct Instr32(pub Gate16, pub qargs::QArgs16);
 

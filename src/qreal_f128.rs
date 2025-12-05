@@ -1,8 +1,6 @@
-use std::{hash::{DefaultHasher, Hash, Hasher}};
-use num_traits::{Num, One, Zero};
+use std::hash::{Hash, Hasher};
 
-use nalgebra::{DMatrix};
-use num_complex::{Complex, Complex64};
+use num_complex::Complex;
 use crate::utils::parse_usize;
 
 #[derive(Clone, Copy, derive_more::Debug, derive_more::Display, derive_more::From, derive_more::Into)]
@@ -194,6 +192,9 @@ impl Qreal {
         let angle = self.0 * std::f128::consts::PI;
         Qcplx::new(Qreal(angle.cos()), Qreal(angle.sin()))
     }
+    pub fn loose_eq(self: Qreal, b: Qreal) -> bool {
+        (self.0 * ((1 << 8) as f64)) as i64 == (b.0 * ((1 << 8) as f64)) as i64 
+    }
 }
 pub type Qcplx = Complex<Qreal>;
 
@@ -215,5 +216,4 @@ impl<'py> pyo3::FromPyObject<'py> for Qreal {
         Ok(Qreal(val as f128))
     }
 }
-
 

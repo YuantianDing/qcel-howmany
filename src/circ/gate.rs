@@ -3,7 +3,7 @@ use std::{hash::Hasher, sync::LazyLock};
 use derive_more::Display;
 use either::Either;
 use nalgebra::DMatrix;
-use crate::Qcplx;
+use crate::{Qcplx, circ::gate};
 use numpy::{Complex64, PyArray2, PyArrayLike2, ToPyArray};
 use pyo3::PyResult;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
@@ -12,11 +12,11 @@ use spin::RwLock;
 
 use crate::{
     circ::{Argument, Instr32, Instruction, gates::initial_gates, param::{NumericError, evaluate_with_pi}},
-    utils::JoinOptionIter,
+    utils::FmtJoinIter,
 };
 
 #[derive(Debug, Clone, Display)]
-#[display("{}{}", self.name, self.params.iter().join_option(", ", "(", ")"))]
+#[display("{}{}", self.name, self.params.iter().fjoin_opt_braces(", ", "(", ")"))]
 pub struct GateData {
     pub name: String,
     pub params: Vec<String>,
@@ -66,8 +66,8 @@ static INSTRUCTION_SET: LazyLock<spin::RwLock<Vec<GateData>>> = LazyLock::new(||
 #[derive(
     derive_more::Debug, Clone, Copy, derive_more::Display, PartialEq, Eq, Ord, PartialOrd, Hash
 )]
-#[debug("Gate({} -> {}{})", self.0, self.name(), self.params().iter().join_option(", ", "(", ")"))]
-#[display("{}{}", self.name(), self.params().iter().join_option(", ", "(", ")"))]
+#[debug("Gate({} -> {}{})", self.0, self.name(), self.params().iter().fjoin_opt_braces(", ", "(", ")"))]
+#[display("{}{}", self.name(), self.params().iter().fjoin_opt_braces(", ", "(", ")"))]
 #[pyo3(name = "Gate")]
 pub struct Gate16(u16);
 
@@ -85,7 +85,11 @@ impl<'de> Deserialize<'de> for Gate16 {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Gate16::from_name(&String::deserialize(deserializer)?).expect("Failed to deserialize Gate8"))
+        let name = String::deserialize(deserializer)?;
+        match Gate16::from_name(&name) {
+            Some(gate) => Ok(gate),
+            None => panic!("Failed to deserialize Gate16 from {name}"),
+        }
     }
 }
 
@@ -106,7 +110,7 @@ impl Gate16 {
         let hash_value = gate_data.hash_value();
 
         let mut set = INSTRUCTION_SET.write();
-        if let Some(idx) = set.iter() .position(|g| g.hash_value() == hash_value) {
+        if let Some(idx) = set.iter().position(|g| g.hash_value() == hash_value) {
             Gate16(idx as u16)
         } else {
             set.push(gate_data);
@@ -173,7 +177,7 @@ impl Gate16 {
 
     #[staticmethod]
     pub fn from_name(name: &str) -> Option<Self> {
-        INSTRUCTION_SET.read().iter().position(|g| name.starts_with(&g.name) && name == format!("{}", g)).map(|idx| Gate16(idx as u16))
+        INSTRUCTION_SET.read().iter().position(|g| name == format!("{}", g)).map(|idx| Gate16(idx as u16))
     }
 
     #[getter(name)]

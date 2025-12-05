@@ -203,12 +203,13 @@ impl Permut32 {
             idx: 0,
         }
     }
-    pub fn swap_inputs(&mut self, a: u8, b: u8) {
+    pub fn swap_inputs(mut self, a: u8, b: u8) -> Self {
         assert!(a < 8 && b < 8, "Indices must be less than 8");
         let a_val = self.at(a);
         let b_val = self.at(b);
         self.set(a, b_val);
         self.set(b, a_val);
+        self
     }
     pub fn permut_bv(&self, mut bv: u8) -> u8 {
         let mut result = 0u8;
@@ -224,7 +225,7 @@ impl Permut32 {
         let mut step = self.clone();
         SORTING_NETWORKS[self.len() as usize].iter().cloned().filter(move |(a, b)| {
             if step.at(*a) > step.at(*b) {
-                step.swap_inputs(*a, *b);
+                step = step.swap_inputs(*a, *b);
                 true
             } else { false }
         })

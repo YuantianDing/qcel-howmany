@@ -1,14 +1,11 @@
-use std::{collections::HashSet, fs::File, io::{BufReader, BufWriter}};
 
-use indicatif::ProgressIterator;
-use itertools::Itertools;
-use quclif::{circ::{Instr32, gates::*}, groups::permutation::Permut32, identity::{circuit::Circ, eccproof::IdentityProver, idcircuit::IdentityCirc}, instr_vec, search::{ECCs, double_perm_search::{CircTriple, Evaluator, RawECCs}}, utils::JoinOptionIter};
+use quclif::{circ::gates::*, identity::eccprove::IdentityProver, search::double_perm_search::{Evaluator, RawECCs}};
 use rand::SeedableRng;
 
 fn main() {
     let nqubits = 5;
-    let ngates = 6;
-    println!("Generating ECCs for {} qubits and {} gates. PRECISION_LEVEL={}", nqubits, ngates, quclif::Qreal::PERCISION_LEVEL);
+    let ngates = 5;
+    println!("Generating ECCs for {} qubits and {} gates. PERCISION_LEVEL={}", nqubits, ngates, quclif::Qreal::PERCISION_LEVEL);
     let evaluator1 = Evaluator::from_random(nqubits, &mut rand::rngs::StdRng::from_seed([1; 32]));
     let (ecc1, _) = RawECCs::generate(&evaluator1, vec![*H, *X, *TDG, *T, *CX], ngates);
     println!("{}", ecc1.len());
@@ -23,17 +20,17 @@ fn main() {
     //     RawECCs::generate_naive(&evaluator, vec![*H, *X, *TDG, *T, *CX], ngates) // *CY, *CZ, *Y, *Z, *SDG, *S
     // };
 
-    // let eccs = eccs.simplify().filter_single();
+    let eccs = ecc1.simplify().filter_single();
 
     // postcard::to_io(&eccs, BufWriter::new(File::create("eccset.serde").unwrap())).expect("Failed to write ECCs to file");
-    // let result = IdentityProver::build(eccs.as_slice());
+    let result =  IdentityProver::build(eccs.as_slice());
     // println!("Number of assumed identities: {}", result.assumed_identities().len());
     // postcard::to_io(&eccs, BufWriter::new(File::create("prover6.serde").unwrap()))
     //     .expect("Failed to write ECCs to file");
     
-    // for id in result.assumed_identities() {
-    //     println!("{}", id);
-    // }
+    for id in result.assumed_identities() {
+        println!("{}", id);
+    }
     // serde_json::to_writer(
     //     BufWriter::new(File::create("rules17.json").unwrap()),
     //     &result.assumed_identities()).expect("Failed to write assumed identities to file");
@@ -50,7 +47,7 @@ fn main() {
     // for problem in eccs.check() {
     //     eprintln!("Correctness Error:");
     //     for c in problem.circuits() {
-    //         eprintln!("\t{}", c.iter().join_option(" ", "", ""))
+    //         eprintln!("\t{}", c.iter().fjoin(" "))
     //     }
     // }
 

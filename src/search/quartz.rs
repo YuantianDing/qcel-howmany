@@ -33,7 +33,7 @@ impl ECCs {
 
 fn ecc_to_json(ecc: Vec<Vec<Instr32>>) -> Vec<Value> {
     let ecc = ecc.iter().map(|list| {
-        // println!("   {}", list.iter().join_option(" ", "", ""));
+        // println!("   {}", list.iter().fjoin(" "));
         let mut largest_qubit = 0;
         let instrs = list.iter().map(|Instr32(g, inds)| {
             let qs = inds.iter().map(|q| format!("Q{q}")).collect_vec();

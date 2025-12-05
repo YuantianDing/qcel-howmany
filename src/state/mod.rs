@@ -1,4 +1,4 @@
-use nalgebra::{ComplexField, DMatrix, Matrix2, Matrix4, Vector2, Vector4};
+use nalgebra::{DMatrix, Matrix2, Matrix4, Vector2, Vector4};
 use numpy::Complex64;
 use crate::{Qreal, Qcplx};
 use pyo3::Bound;
@@ -6,7 +6,7 @@ use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use rand::{Rng, SeedableRng, rngs::StdRng};
 use core::panic;
 use std::{
-    array, cell::RefCell, collections::BTreeMap, hash::{DefaultHasher, Hash, Hasher}
+    array, cell::RefCell, hash::{Hash, Hasher}
 };
 
 use crate::{circ::{Gate16, Instr32}, groups::permutation::Permut32, state::indices::qubit_matrix_indices2};
@@ -193,48 +193,48 @@ impl StateVec {
 
         oi
     }
-    fn hash_value_of_qubit(&self, q: u8, oi: &order_info::OrderInfo) -> u64 {
-        let mut length = 2u32;
-        let mut vec = Vec::with_capacity(oi.n_eqclasses());
-        vec.extend(oi.eqclasses().map(|cls| {
-            let result = cls.iter().map(|&p| if p != (q as usize) { 1u8 << p } else { 0u8 }).fold(0u8, |acc, x| acc | x);
-            length *= result.count_ones() + 1;
-            result
-        }));
-        let mut table = vec![0u64; length as usize];
+    // fn hash_value_of_qubit(&self, q: u8, oi: &order_info::OrderInfo) -> u64 {
+    //     let mut length = 2u32;
+    //     let mut vec = Vec::with_capacity(oi.n_eqclasses());
+    //     vec.extend(oi.eqclasses().map(|cls| {
+    //         let result = cls.iter().map(|&p| if p != (q as usize) { 1u8 << p } else { 0u8 }).fold(0u8, |acc, x| acc | x);
+    //         length *= result.count_ones() + 1;
+    //         result
+    //     }));
+    //     let mut table = vec![0u64; length as usize];
 
-        for i in 0..self.re.len() as u8 {
-            let mut index = (i & (1 << q) != 0) as usize;
-            for mask in &vec {
-                index *= mask.count_ones() as usize + 1;
-                index += (mask & i).count_ones() as usize;
-            }
-            table[index] = unsafe { table[index].unchecked_add(make_hash(self.at(i as usize))) };
-        }
+    //     for i in 0..self.re.len() as u8 {
+    //         let mut index = (i & (1 << q) != 0) as usize;
+    //         for mask in &vec {
+    //             index *= mask.count_ones() as usize + 1;
+    //             index += (mask & i).count_ones() as usize;
+    //         }
+    //         table[index] = unsafe { table[index].unchecked_add(make_hash(self.at(i as usize))) };
+    //     }
         
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        table.hash(&mut hasher);
-        hasher.finish()
-    }
-    fn hash_value_of_qubit2(&self, q: u8, oi: &order_info::OrderInfo) -> u64 {
-        let mut map = BTreeMap::<Vec<usize>, u64>::new();
+    //     let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    //     table.hash(&mut hasher);
+    //     hasher.finish()
+    // }
+    // fn hash_value_of_qubit2(&self, q: u8, oi: &order_info::OrderInfo) -> u64 {
+    //     let mut map = BTreeMap::<Vec<usize>, u64>::new();
 
-        for i in 0..self.re.len() {
-            let mut vec = Vec::with_capacity(oi.n_eqclasses() + 1);
-            vec.push((i & (1 << q) != 0) as usize);
-            vec.extend(oi.eqclasses().map(|cls|
-                cls.iter().cloned()
-                    .filter(|&p|
-                        p != (q as usize) && i & (1 << p) != 0
-                    ).count()));
-            let h = map.entry(vec).or_insert(Default::default());
-            *h = unsafe { h.unchecked_add(make_hash(self.at(i))) };
-        }
+    //     for i in 0..self.re.len() {
+    //         let mut vec = Vec::with_capacity(oi.n_eqclasses() + 1);
+    //         vec.push((i & (1 << q) != 0) as usize);
+    //         vec.extend(oi.eqclasses().map(|cls|
+    //             cls.iter().cloned()
+    //                 .filter(|&p|
+    //                     p != (q as usize) && i & (1 << p) != 0
+    //                 ).count()));
+    //         let h = map.entry(vec).or_insert(Default::default());
+    //         *h = unsafe { h.unchecked_add(make_hash(self.at(i))) };
+    //     }
         
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        map.hash(&mut hasher);
-        hasher.finish()
-    }
+    //     let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    //     map.hash(&mut hasher);
+    //     hasher.finish()
+    // }
     // pub fn compare_qubits(&self, a: u8, b: u8) -> Ordering {
     //     let value = self.at(1 << a) - self.at(1 << b);
     //     if !value.re.near_zero() || !value.im.near_zero() {
@@ -512,7 +512,6 @@ impl StateVec {
         };
 
         state_vec.normalize();
-        state_vec.normalize_arg();
         state_vec
     }
 
@@ -542,14 +541,23 @@ impl StateVec {
         state_vec.normalize();
         state_vec
     }
+
+    pub fn loose_eq(&self, other: &StateVec) -> bool {
+        self.re.iter().zip(other.re.iter()).all(|(a, b)| {
+            a.loose_eq(*b)
+        }) &&
+        self.im.iter().zip(other.im.iter()).all(|(a, b)| {
+            a.loose_eq(*b)
+        })
+    }
 }
 
 
 pub mod indices;
 mod gates;
 
-fn make_hash<T: Hash>(val: T) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    val.hash(&mut hasher);
-    hasher.finish()
-}
+// fn make_hash<T: Hash>(val: T) -> u64 {
+//     let mut hasher = DefaultHasher::new();
+//     val.hash(&mut hasher);
+//     hasher.finish()
+// }

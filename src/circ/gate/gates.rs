@@ -1,10 +1,14 @@
 use std::sync::LazyLock;
 
 use nalgebra::DMatrix;
+use rand::Rng;
 
 use crate::{Qcplx, Qreal, circ::{Gate16, GateData, Instr32}};
 
 pub fn initial_gates() -> Vec<GateData> {
+    let mut rng = rand::rng();
+    let theta1 = Qreal::from(rng.random::<f64>());
+    let theta2 = Qreal::from(rng.random::<f64>());
     vec![
         GateData::new(
             "i".to_string(),
@@ -167,9 +171,42 @@ pub fn initial_gates() -> Vec<GateData> {
             vec!["-pi/3".into()],
             DMatrix::from_row_slice(2, 2, &[
                 Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
-                Qcplx::new(0.0.into(), 0.0.into()), Qreal::frac(1, 4).expipi().conj(),
+                Qcplx::new(0.0.into(), 0.0.into()), Qreal::frac(1, 3).expipi().conj(),
             ])
         ),
+        GateData::new(
+            "rz".to_string(),
+            vec!["theta1".into()],
+            DMatrix::from_row_slice(2, 2, &[
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), theta1.expipi(),
+            ])
+        ),
+        GateData::new(
+            "rz".to_string(),
+            vec!["-theta1".into()],
+            DMatrix::from_row_slice(2, 2, &[
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), theta1.expipi().conj(),
+            ])
+        ),
+        GateData::new(
+            "rz".to_string(),
+            vec!["theta2".into()],
+            DMatrix::from_row_slice(2, 2, &[
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), theta2.expipi(),
+            ])
+        ),
+        GateData::new(
+            "rz".to_string(),
+            vec!["-theta2".into()],
+            DMatrix::from_row_slice(2, 2, &[
+                Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
+                Qcplx::new(0.0.into(), 0.0.into()), theta2.expipi().conj(),
+            ])
+        ),
+
     ]
 }
 
@@ -191,6 +228,13 @@ pub static CS : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("cs").unwr
 pub static CSDG : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("csdg").unwrap());
 pub static CY: LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("cy").unwrap());
 pub static SWAP : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("swap").unwrap());
+pub static RZ_FRAC_PI_3 : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("rz(pi/3)").unwrap());
+pub static RZ_NEG_FRAC_PI_3 : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("rz(-pi/3)").unwrap());
+pub static RZ_THETA_1 : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("rz(theta1)").unwrap());
+pub static RZ_NEG_THETA_1 : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("rz(-theta1)").unwrap());
+pub static RZ_THETA_2 : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("rz(theta2)").unwrap());
+pub static RZ_NEG_THETA_2 : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("rz(-theta2)").unwrap());
+
 
 pub fn i() -> Instr32 { I.instr([]) }
 pub fn h(q1: u8) -> Instr32 { H.instr([q1]) }
@@ -210,3 +254,13 @@ pub fn csdg(q1: u8, q2: u8) -> Instr32 { CSDG.instr([q1, q2]) }
 pub fn cy(q1: u8, q2: u8) -> Instr32 { CY.instr([q1, q2]) }
 pub fn swap(q1: u8, q2: u8) -> Instr32 { SWAP.instr([q1, q2]) }
 
+#[cfg(test)]
+mod test {
+    use crate::circ::gates::{RZ_FRAC_PI_3, RZ_NEG_FRAC_PI_3};
+
+    #[test]
+    fn test() {
+        assert!(RZ_FRAC_PI_3.adjoint() == *RZ_NEG_FRAC_PI_3);
+        assert!(format!("{}", RZ_FRAC_PI_3.adjoint()) == "rz(-pi/3)");
+    }
+}

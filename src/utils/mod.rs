@@ -1,6 +1,10 @@
+use std::cell::RefCell;
 use std::cmp::Ordering;
+use std::ops::{Deref, DerefMut};
 use alias_ptr::AliasPtr;
+use derive_more::Display;
 use extension_traits::extension;
+use nohash_hasher::BuildNoHashHasher;
 use std::hash::{Hash, Hasher};
 use std::fmt::{self, Debug, Display};
 
@@ -114,29 +118,71 @@ impl<T: 'static> Iterator for AliasList<T> {
     }
 }
 
-#[extension(pub trait JoinOptionIter)]
+#[extension(pub trait FmtJoinIter)]
 impl<T, Iter: Iterator<Item=T> + Clone> Iter where Self : Sized {
-    fn join_option<Sep, Start, End>(&self, sep: Sep, start: Start, end: End) -> JoinOption<'_, Self, Sep, Start, End> {
-        JoinOption {
-            iter: &self,
+    fn fjoin<Sep>(self, sep: Sep) -> FmtJoin<Self, Sep> {
+        FmtJoin {
+            iter: RefCell::new(self),
+            sep,
+            start: FmtNone,
+            end: FmtNone,
+            orelse: FmtNone,
+        }
+    }
+    fn fjoin_or_else<Sep, OrElse>(self, sep: Sep, orelse: OrElse) -> FmtJoin<Self, Sep, FmtNone, FmtNone, OrElse> {
+        FmtJoin {
+            iter: RefCell::new(self),
+            sep,
+            start: FmtNone,
+            end: FmtNone,
+            orelse,
+        }
+    }
+    fn fjoin_opt_braces<Sep, Start, End>(self, sep: Sep, start: Start, end: End) -> FmtJoin<Self, Sep, Start, End, FmtNone> {
+        FmtJoin {
+            iter: RefCell::new(self),
             sep,
             start,
             end,
+            orelse: FmtNone,
+        }
+    }
+    fn fjoin4<Sep, Start, End, OrElse>(self, sep: Sep, start: Start, end: End, orelse: OrElse) -> FmtJoin<Self, Sep, Start, End, OrElse> {
+        FmtJoin {
+            iter: RefCell::new(self),
+            sep,
+            start,
+            end,
+            orelse,
         }
     }
 }
 
-#[derive(Clone)]
-pub struct JoinOption<'a, Iter, Sep, Start, End> {
-    iter: &'a Iter,
+pub struct FmtNone;
+
+impl Debug for FmtNone {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Ok(())
+    }
+}
+
+impl Display for FmtNone {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Ok(())
+    }
+}
+pub struct FmtJoin<Iter, Sep, Start=FmtNone, End=FmtNone, OrElse=FmtNone> {
+    iter: RefCell<Iter>,
     sep: Sep,
     start: Start,
     end: End,
+    orelse: OrElse,
 }
 
-impl<'a, T: Debug, Iter: Iterator<Item=T> + Clone, Sep: Debug, Start: Debug, End: Debug> Debug for JoinOption<'a, Iter, Sep, Start, End> {
+impl<T: Debug, Iter: Iterator<Item=T>, Sep: Debug, Start: Debug, End: Debug, OrElse: Debug> Debug for FmtJoin<Iter, Sep, Start, End, OrElse> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut iter = self.iter.clone();
+        let mut guard = self.iter.borrow_mut();
+        let iter = guard.deref_mut();
         if let Some(a) = iter.next() {
             write!(f, "{:?}{:?}", self.start, a)?;
             for item in iter {
@@ -144,14 +190,15 @@ impl<'a, T: Debug, Iter: Iterator<Item=T> + Clone, Sep: Debug, Start: Debug, End
             }
             write!(f, "{:?}", self.end)
         } else {
-            write!(f, "")
+            write!(f, "{:?}", self.orelse)
         }
     }
 }
 
-impl<'a, T: Display, Iter: Iterator<Item=T> + Clone, Sep: Display, Start: Display, End: Display> Display for JoinOption<'a, Iter, Sep, Start, End> {
+impl<T: Display, Iter: Iterator<Item=T>, Sep: Display, Start: Display, End: Display, OrElse: Debug> Display for FmtJoin<Iter, Sep, Start, End, OrElse> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut iter = self.iter.clone();
+        let mut guard = self.iter.borrow_mut();
+        let iter = guard.deref_mut();
         if let Some(a) = iter.next() {
             write!(f, "{}{}", self.start, a)?;
             for item in iter {
@@ -159,7 +206,7 @@ impl<'a, T: Display, Iter: Iterator<Item=T> + Clone, Sep: Display, Start: Displa
             }
             write!(f, "{}", self.end)
         } else {
-            write!(f, "")
+            write!(f, "{:?}", self.orelse)
         }
     }
 }
@@ -206,4 +253,184 @@ pub const fn parse_usize(s: &str) -> usize {
         i += 1;
     }
     out
+}
+
+#[derive(Debug, Display, Clone, serde::Deserialize, serde::Serialize)]
+pub struct HashTable64<K: Hash + PartialEq, V>(std::collections::HashMap<u64, (K, V), BuildNoHashHasher<u64>>);
+
+impl<K: Hash + PartialEq, V: PartialEq> PartialEq for HashTable64<K, V> {
+    fn eq(&self, other: &Self) -> bool {
+        if self.len() != other.len() {
+            return false;
+        }
+        for (k, v) in self.iter() {
+            match other.get(k) {
+                Some(v2) if v == v2 => (),
+                _ => return false,
+            }
+        }
+        true
+    }
+}
+
+impl<K: Hash + Eq, V: Eq> Eq for HashTable64<K, V> {}
+
+impl<K: Hash + PartialEq, V> HashTable64<K, V> {
+    pub fn insert(&mut self, key: K, value: V) -> (u64, Option<V>) {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        key.hash(&mut hasher);
+        let hash = hasher.finish();
+        match self.0.entry(hash) {
+            std::collections::hash_map::Entry::Occupied(mut occupied_entry) => {
+                assert!(occupied_entry.get().0 == key, "Hash collision detected in HashTable64");
+                (hash, Some(occupied_entry.insert((key, value)).1))
+            },
+            std::collections::hash_map::Entry::Vacant(vacant_entry) => {
+                vacant_entry.insert((key, value));
+                (hash, None)
+            }
+        }
+    }
+    pub fn extend<I: IntoIterator<Item = (K, V)>>(&mut self, iter: I) {
+        for (k, v) in iter {
+            self.insert(k, v);
+        }
+    }
+}
+impl<K: Hash + PartialEq, V> HashTable64<K, V> {
+    pub fn new() -> Self {
+        Self(std::collections::HashMap::with_hasher(BuildNoHashHasher::default()))
+    }
+
+
+
+    pub fn get(&self, key: &K) -> Option<&V> {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        key.hash(&mut hasher);
+        let hash = hasher.finish();
+        self.0.get(&hash).and_then(|(k, v)| {
+            assert!(k == key, "Hash collision detected in HashTable64");
+            Some(v)
+        })
+    }
+
+    pub fn get_mut(&mut self, key: &K) -> Option<(&K, &mut V)> {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        key.hash(&mut hasher);
+        let hash = hasher.finish();
+        self.0.get_mut(&hash).and_then(|(k, v)| {
+            assert!(k == key, "Hash collision detected in HashTable64");
+            Some((&*k, v))
+        })
+    }
+
+    pub fn address(&self, hash: u64) -> Option<&(K, V)> {
+        self.0.get(&hash)
+    }
+
+    pub fn address_mut(&mut self, hash: u64) -> Option<(&K, &mut V)> {
+        self.0.get_mut(&hash).map(|(k, v)| (&*k, v))
+    }
+
+    pub fn address_or(&mut self, hash: u64, default: (K, V)) -> Option<(&K, &mut V)> {
+        match self.0.entry(hash) {
+            std::collections::hash_map::Entry::Occupied(occupied_entry) => {
+                let (k, v) = occupied_entry.into_mut();
+                Some((&*k, v))
+            },
+            std::collections::hash_map::Entry::Vacant(vacant_entry) => {
+                let (k, v) = vacant_entry.insert(default);
+                Some((&*k, v))
+            }
+        }
+    }
+
+
+    pub fn contains_key(&self, key: &K) -> bool {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        key.hash(&mut hasher);
+        let hash = hasher.finish();
+        self.0.get(&hash).map_or(false, |(k, _)| k == key)
+    }
+    pub fn contains_hash(&self, key: u64) -> bool {
+        self.0.contains_key(&key)
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &(K, V)> {
+        self.0.values()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut V> {
+        self.0.values_mut().map(|(_, v)| v)
+    }
+
+    pub fn get_or(&mut self, key: K, default: V) -> &mut V {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        key.hash(&mut hasher);
+        let hash = hasher.finish();
+        match self.0.entry(hash) {
+            std::collections::hash_map::Entry::Occupied(occupied_entry) => {
+                let (k, v) = occupied_entry.into_mut();
+                assert!(k == &key, "Hash collision detected in HashTable64");
+                v
+            },
+            std::collections::hash_map::Entry::Vacant(vacant_entry) => {
+                &mut vacant_entry.insert((key, default)).1
+            }
+        }
+    }
+
+    pub fn remove_hash(&mut self, hash: u64) -> Option<(K, V)> {
+        self.0.remove(&hash)
+    }
+}
+
+impl<K: Hash + Eq, V> IntoIterator for HashTable64<K, V> {
+    type Item = (K, V);
+    type IntoIter = std::collections::hash_map::IntoValues<u64, (K, V)>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_values()
+    }
+}
+// impl<K: Hash + Eq, V> FromIterator<(K, V)> for HashTable64<K, V> {
+//     fn from_iter<I: IntoIterator<Item = (K, V)>>(iter: I) -> Self {
+//         let mut table = Self::new();
+//         for (k, v) in iter {
+//             table.insert(k, v);
+//         }
+//         table
+//     }
+// }
+
+impl<K: Hash + Eq, V> Default for HashTable64<K, V> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub fn postcard_write_file<T: serde::Serialize + ?Sized>(t: &T, path: impl AsRef<std::path::Path>) -> postcard::Result<()>
+where
+    T: serde::Serialize,
+{
+    
+    let file = std::fs::File::create(path).map_err(|_| postcard::Error::SerdeSerCustom)?;
+    postcard::to_io(t, file).map(|_| ())
+}
+
+pub fn postcard_read_file<T: serde::de::DeserializeOwned>(path: impl AsRef<std::path::Path>) -> postcard::Result<T> {
+    let file = std::fs::File::open(path).map_err(|_| postcard::Error::SerdeDeCustom)?;
+    postcard::from_io((file, &mut [0u8; 4096][..])).map(|a| a.0)
 }

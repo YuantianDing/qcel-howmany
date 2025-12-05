@@ -8,8 +8,8 @@ from generate_eccs import generate_eccs
 
 NGATES = {
     "logical": (9, 9, 9),
-    "clifford": (8, 8, 6),
-    "clifford-t": (8, 8, 6),
+    "clifford": (6, 8, 6),
+    "clifford-t": (6, 8, 6),
     "common-clifford-t": (5, 5, 4),
     "clifford-t1/2": (6, 7, 5),
     "clifford-rz(pi/3)": (6, 7, 5),
@@ -25,7 +25,6 @@ if __name__ == "__main__":
             if prover is not None:
                 if gate_count < size <= prove_gate_count:
                     prove(prover, gate_set_name, ngates=size)
-                # elif size <= naive_gate_count:
-                #     prove(prover, gate_set_name, ngates=size, naive=True)
-        
+            if size <= naive_gate_count:
+                prover, _ = build_prover(gate_set_name, ngates=min(size, gate_count), naive=True)
         

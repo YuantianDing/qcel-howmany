@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use pyo3::pyclass;
 
-use crate::{groups::permutation::Permut32, utils::JoinOptionIter};
+use crate::{groups::permutation::Permut32, utils::FmtJoinIter};
 
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
 #[pyclass(eq, str)]
@@ -14,7 +14,7 @@ pub struct OrderInfo {
 
 impl std::fmt::Display for OrderInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "OrderInfo[{}]", self.eqclasses().map(|x| format!("{}", x.iter().join_option("=", "", ""))).join_option(" ", "", ""))
+        write!(f, "OrderInfo[{}]", self.eqclasses().map(|x| format!("{}", x.iter().fjoin("="))).fjoin(" "))
     }
 }
 

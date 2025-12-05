@@ -1,0 +1,99 @@
+
+running 1 test
+#0 Exploring  (0 queued, 1 ECCs, 0 circs, 0 circs perm)
+Identity { cx(0, 1) cx(0, 1) (0 1) }
+Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) (0 1 2) }
+Identity { cx(0, 1) cx(2, 1) cx(0, 1) cx(2, 1) (0 1 2) }
+Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(0, 1) cx(1, 2) (0 1 2) }
+Exploring 137fedc3ba9a5356 10 Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(2, 1) cx(1, 2) cx(0, 2) cx(0, 1) cx(1, 2) cx(2, 1) cx(1, 2) (0 1 2) } (0 queued)
+Exploring 83a6affa32576d38 5 Identity { cx(0, 1) cx(1, 0) cx(2, 1) cx(0, 1) cx(2, 1) (1 0 2) } (162 queued)
+Found proof for Identity { cx(0, 1) cx(1, 0) cx(2, 1) cx(0, 1) cx(2, 1) (1 0 2) } <- Identity { cx(0, 1) cx(2, 1) cx(0, 1) cx(2, 1) (0 1 2) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Exploring ac3bf5dc3de610a6 5 Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(0, 2) cx(2, 1) (0 1 2) } (183 queued)
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(0, 2) cx(2, 1) (0 1 2) } <- Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(0, 1) cx(1, 2) (0 1 2) }, Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) (0 1 2) }
+Exploring ecdeb9906e968c90 5 Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(2, 0) cx(0, 2) (2 1 0) } (212 queued)
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(2, 0) cx(0, 2) (2 1 0) } <- Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) (0 1 2) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Exploring 3162a41923635ff5 6 Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(0, 1) cx(2, 1) cx(1, 2) (0 2 1) } (237 queued)
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(0, 1) cx(2, 1) cx(1, 2) (0 2 1) } <- Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(0, 1) cx(1, 2) (0 1 2) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Exploring 65cdae0e3fb2006a 6 Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(1, 2) cx(0, 2) cx(2, 1) (0 2 1) } (278 queued)
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(1, 2) cx(0, 2) cx(2, 1) (0 2 1) } <- Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(0, 1) cx(1, 2) (0 1 2) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Exploring 992de5ad07d283be 6 Identity { cx(0, 1) cx(0, 2) cx(1, 0) cx(1, 2) cx(0, 2) cx(0, 1) (1 0 2) } (324 queued)
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(1, 0) cx(1, 2) cx(0, 2) cx(0, 1) (1 0 2) } <- Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(0, 1) cx(1, 2) (0 1 2) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Exploring b3e57060f74f63cd 6 Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(1, 2) cx(0, 2) cx(1, 2) (0 1 2) } (367 queued)
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(1, 2) cx(0, 2) cx(1, 2) (0 1 2) } <- Identity { cx(0, 1) cx(2, 1) cx(0, 1) cx(2, 1) (0 1 2) }, Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) (0 1 2) }
+Exploring c7a62fe3f63af282 6 Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(2, 0) cx(0, 1) cx(0, 2) (2 1 0) } (420 queued)
+Exploring 83a6affa32576d38 5 Identity { cx(0, 1) cx(1, 0) cx(2, 1) cx(0, 1) cx(2, 1) (1 0 2) } (509 queued)
+Found proof for Identity { cx(0, 1) cx(1, 0) cx(2, 1) cx(0, 1) cx(2, 1) (1 0 2) } <- Identity { cx(0, 1) cx(2, 1) cx(0, 1) cx(2, 1) (0 1 2) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Exploring ac3bf5dc3de610a6 5 Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(0, 2) cx(2, 1) (0 1 2) } (542 queued)
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(0, 2) cx(2, 1) (0 1 2) } <- Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(0, 1) cx(1, 2) (0 1 2) }, Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) (0 1 2) }
+Exploring ecdeb9906e968c90 5 Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(2, 0) cx(0, 2) (2 1 0) } (571 queued)
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(2, 0) cx(0, 1) cx(0, 2) (2 1 0) } <- Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(2, 0) cx(0, 2) (2 1 0) }, Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(0, 2) cx(2, 1) (0 1 2) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(2, 0) cx(0, 1) cx(0, 2) (2 1 0) } <- Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(2, 0) cx(0, 2) (2 1 0) }, Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(0, 2) cx(2, 1) (0 1 2) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(2, 0) cx(0, 1) cx(0, 2) (2 1 0) } <- Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(2, 0) cx(0, 2) (2 1 0) }, Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(0, 2) cx(2, 1) (0 1 2) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(2, 0) cx(0, 2) (2 1 0) } <- Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) (0 1 2) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Exploring a37d641a5eceb16 9 Identity { cx(0, 1) cx(0, 1) cx(2, 0) cx(2, 1) cx(0, 1) cx(1, 0) cx(0, 1) cx(2, 1) cx(2, 0) (1 0 2) } (123 queued)
+Exploring e61d2cd1e30395e 4 Identity { cx(0, 1) cx(0, 1) cx(0, 2) cx(0, 2) (0 1 2) } (291 queued)
+Found proof for Identity { cx(0, 1) cx(0, 1) cx(0, 2) cx(0, 2) (0 1 2) } <- Identity { cx(0, 1) cx(0, 1) (0 1) }, Identity { cx(0, 1) cx(0, 1) (0 1) }
+Exploring 2819162421aed89b 4 Identity { cx(0, 1) cx(0, 1) cx(2, 3) cx(2, 3) (0 1 2 3) } (316 queued)
+Found proof for Identity { cx(0, 1) cx(0, 1) cx(2, 3) cx(2, 3) (0 1 2 3) } <- Identity { cx(0, 1) cx(0, 1) (0 1) }, Identity { cx(0, 1) cx(0, 1) (0 1) }
+Exploring 6d0189319ef3ab29 4 Identity { cx(0, 1) cx(0, 1) cx(1, 0) cx(1, 0) (0 1) } (338 queued)
+Found proof for Identity { cx(0, 1) cx(0, 1) cx(1, 0) cx(1, 0) (0 1) } <- Identity { cx(0, 1) cx(0, 1) (0 1) }, Identity { cx(0, 1) cx(0, 1) (0 1) }
+Exploring 8ddfca3fc5ceca26 4 Identity { cx(0, 1) cx(0, 1) cx(1, 2) cx(1, 2) (0 1 2) } (365 queued)
+Found proof for Identity { cx(0, 1) cx(0, 1) cx(1, 2) cx(1, 2) (0 1 2) } <- Identity { cx(0, 1) cx(0, 1) (0 1) }, Identity { cx(0, 1) cx(0, 1) (0 1) }
+Exploring 9053490fe3e5b132 4 Identity { cx(0, 1) cx(0, 1) cx(2, 1) cx(2, 1) (0 1 2) } (387 queued)
+Found proof for Identity { cx(0, 1) cx(0, 1) cx(2, 1) cx(2, 1) (0 1 2) } <- Identity { cx(0, 1) cx(0, 1) (0 1) }, Identity { cx(0, 1) cx(0, 1) (0 1) }
+Exploring 142352722282e4df 5 Identity { cx(0, 1) cx(0, 1) cx(0, 2) cx(2, 0) cx(0, 2) (2 1 0) } (412 queued)
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(2, 0) cx(0, 2) (2 1 0) } <- Identity { cx(0, 1) cx(0, 1) cx(0, 2) cx(2, 0) cx(0, 2) (2 1 0) }, Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) (0 1 2) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(2, 0) cx(0, 2) (2 1 0) } <- Identity { cx(0, 1) cx(0, 1) cx(0, 2) cx(2, 0) cx(0, 2) (2 1 0) }, Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) (0 1 2) }
+Found proof for Identity { cx(0, 1) cx(0, 1) cx(0, 2) cx(0, 2) (0 1 2) } <- Identity { cx(0, 1) cx(0, 1) cx(0, 2) cx(2, 0) cx(0, 2) (2 1 0) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Found proof for Identity { cx(0, 1) cx(0, 1) cx(0, 2) cx(0, 2) (0 1 2) } <- Identity { cx(0, 1) cx(0, 1) cx(0, 2) cx(2, 0) cx(0, 2) (2 1 0) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Found proof for Identity { cx(0, 1) cx(0, 1) cx(1, 2) cx(1, 2) (0 1 2) } <- Identity { cx(0, 1) cx(0, 1) cx(0, 2) cx(2, 0) cx(0, 2) (2 1 0) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Found proof for Identity { cx(0, 1) cx(0, 1) cx(0, 2) cx(2, 0) cx(0, 2) (2 1 0) } <- Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }, Identity { cx(0, 1) cx(0, 1) (0 1) }
+Exploring 83a6affa32576d38 5 Identity { cx(0, 1) cx(1, 0) cx(2, 1) cx(0, 1) cx(2, 1) (1 0 2) } (434 queued)
+Found proof for Identity { cx(0, 1) cx(1, 0) cx(2, 1) cx(0, 1) cx(2, 1) (1 0 2) } <- Identity { cx(0, 1) cx(2, 1) cx(0, 1) cx(2, 1) (0 1 2) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Exploring ac3bf5dc3de610a6 5 Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(0, 2) cx(2, 1) (0 1 2) } (462 queued)
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(0, 2) cx(2, 1) (0 1 2) } <- Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(0, 1) cx(1, 2) (0 1 2) }, Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) (0 1 2) }
+Exploring 227b11e7a7bbd99 6 Identity { cx(0, 1) cx(0, 1) cx(1, 2) cx(0, 2) cx(1, 2) cx(0, 2) (0 1 2) } (476 queued)
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(1, 2) cx(0, 2) cx(1, 2) (0 1 2) } <- Identity { cx(0, 1) cx(0, 1) cx(1, 2) cx(0, 2) cx(1, 2) cx(0, 2) (0 1 2) }, Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) (0 1 2) }
+Found proof for Identity { cx(0, 1) cx(0, 1) cx(1, 2) cx(0, 2) cx(1, 2) cx(0, 2) (0 1 2) } <- Identity { cx(0, 1) cx(2, 1) cx(0, 1) cx(2, 1) (0 1 2) }, Identity { cx(0, 1) cx(0, 1) (0 1) }
+Exploring 28afd4cd5e2b060b 6 Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(1, 0) cx(0, 2) cx(0, 1) (1 0 2) } (509 queued)
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(0, 2) cx(2, 1) (0 1 2) } <- Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(1, 0) cx(0, 2) cx(0, 1) (1 0 2) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(1, 0) cx(1, 2) cx(0, 2) cx(0, 1) (1 0 2) } <- Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(1, 0) cx(0, 2) cx(0, 1) (1 0 2) }, Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) (0 1 2) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(1, 0) cx(0, 2) cx(0, 1) (1 0 2) } <- Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(2, 0) cx(0, 1) cx(0, 2) (2 1 0) }, Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) (0 1 2) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(2, 0) cx(0, 1) cx(0, 2) (2 1 0) } <- Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(1, 0) cx(0, 2) cx(0, 1) (1 0 2) }, Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) (0 1 2) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(2, 0) cx(0, 1) cx(0, 2) (2 1 0) } <- Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(1, 0) cx(0, 2) cx(0, 1) (1 0 2) }, Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) (0 1 2) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(2, 0) cx(0, 1) cx(0, 2) (2 1 0) } <- Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(1, 0) cx(0, 2) cx(0, 1) (1 0 2) }, Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) (0 1 2) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(0, 2) cx(2, 1) (0 1 2) } <- Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(1, 0) cx(0, 2) cx(0, 1) (1 0 2) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(0, 2) cx(2, 1) (0 1 2) } <- Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(1, 0) cx(0, 2) cx(0, 1) (1 0 2) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(1, 0) cx(0, 2) cx(0, 1) (1 0 2) } <- Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(0, 2) cx(2, 1) (0 1 2) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Exploring 3162a41923635ff5 6 Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(0, 1) cx(2, 1) cx(1, 2) (0 2 1) } (547 queued)
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(0, 1) cx(2, 1) cx(1, 2) (0 2 1) } <- Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(0, 1) cx(1, 2) (0 1 2) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Exploring 43019254aaf5748f 6 Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(2, 1) cx(0, 1) cx(1, 2) (0 2 1) } (598 queued)
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(0, 2) cx(2, 1) (0 1 2) } <- Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(2, 1) cx(0, 1) cx(1, 2) (0 2 1) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(2, 1) cx(0, 1) cx(1, 2) (0 2 1) } <- Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(1, 2) cx(0, 2) cx(2, 1) (0 2 1) }, Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) (0 1 2) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(1, 2) cx(0, 2) cx(2, 1) (0 2 1) } <- Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(2, 1) cx(0, 1) cx(1, 2) (0 2 1) }, Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) (0 1 2) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(0, 2) cx(2, 1) (0 1 2) } <- Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(2, 1) cx(0, 1) cx(1, 2) (0 2 1) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(0, 2) cx(2, 1) (0 1 2) } <- Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(2, 1) cx(0, 1) cx(1, 2) (0 2 1) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(2, 1) cx(0, 1) cx(1, 2) (0 2 1) } <- Identity { cx(0, 1) cx(0, 2) cx(2, 1) cx(0, 2) cx(2, 1) (0 1 2) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Exploring 829465c3ec803207 7 Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) cx(1, 2) cx(2, 1) cx(1, 2) (0 2 1) } (447 queued)
+Exploring 7069ece5eae6bb46 5 Identity { cx(0, 1) cx(0, 1) cx(2, 1) cx(1, 2) cx(2, 1) (0 2 1) } (569 queued)
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(0, 1) cx(2, 1) cx(1, 2) (0 2 1) } <- Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) cx(1, 2) cx(2, 1) cx(1, 2) (0 2 1) }, Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(0, 1) cx(1, 2) (0 1 2) }
+Found proof for Identity { cx(0, 1) cx(0, 1) cx(2, 0) cx(2, 1) cx(0, 1) cx(1, 0) cx(0, 1) cx(2, 1) cx(2, 0) (1 0 2) } <- Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(2, 1) cx(1, 2) cx(0, 2) cx(0, 1) cx(1, 2) cx(2, 1) cx(1, 2) (0 1 2) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(2, 1) cx(1, 2) cx(0, 2) cx(0, 1) cx(1, 2) cx(2, 1) cx(1, 2) (0 1 2) } <- Identity { cx(0, 1) cx(0, 1) cx(2, 0) cx(2, 1) cx(0, 1) cx(1, 0) cx(0, 1) cx(2, 1) cx(2, 0) (1 0 2) }, Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }
+Found proof for Identity { cx(0, 1) cx(0, 1) cx(2, 0) cx(2, 1) cx(0, 1) cx(1, 0) cx(0, 1) cx(2, 1) cx(2, 0) (1 0 2) } <- Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) cx(1, 2) cx(2, 1) cx(1, 2) (0 2 1) }, Identity { cx(0, 1) cx(0, 1) (0 1) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(0, 1) cx(2, 1) cx(1, 2) (0 2 1) } <- Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) cx(1, 2) cx(2, 1) cx(1, 2) (0 2 1) }, Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(0, 1) cx(1, 2) (0 1 2) }
+Found proof for Identity { cx(0, 1) cx(0, 1) cx(2, 1) cx(1, 2) cx(2, 1) (0 2 1) } <- Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) cx(1, 2) cx(2, 1) cx(1, 2) (0 2 1) }, Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) (0 1 2) }
+Found proof for Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) cx(1, 2) cx(2, 1) cx(1, 2) (0 2 1) } <- Identity { cx(0, 1) cx(0, 1) cx(2, 1) cx(1, 2) cx(2, 1) (0 2 1) }, Identity { cx(0, 1) cx(0, 2) cx(0, 1) cx(0, 2) (0 1 2) }
+Found proof for Identity { cx(0, 1) cx(0, 1) cx(2, 1) cx(1, 2) cx(2, 1) (0 2 1) } <- Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) }, Identity { cx(0, 1) cx(0, 1) (0 1) }
+Exporting a37d641a5eceb16 {137fedc3ba9a5356: 0}
+Exporting 137fedc3ba9a5356 {a37d641a5eceb16: 1, 137fedc3ba9a5356: 0}
+Exporting 5c35bea80dd34879 {a37d641a5eceb16: 1, 137fedc3ba9a5356: 0}
+Exporting 5c35bea80dd34879 {a37d641a5eceb16: 1, 5c35bea80dd34879: 2, 137fedc3ba9a5356: 0}
+0: Identity { cx(0, 1) cx(0, 2) cx(1, 2) cx(2, 1) cx(1, 2) cx(0, 2) cx(0, 1) cx(1, 2) cx(2, 1) cx(1, 2) (0 1 2) } <- 1, 2
+1: Identity { cx(0, 1) cx(0, 1) cx(2, 0) cx(2, 1) cx(0, 1) cx(1, 0) cx(0, 1) cx(2, 1) cx(2, 0) (1 0 2) } <- 0, 2
+2: Identity { cx(0, 1) cx(1, 0) cx(0, 1) (1 0) } <- ASSUME
+
+test identity::eccprove::test::test ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.45s
+

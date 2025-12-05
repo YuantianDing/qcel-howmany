@@ -51,31 +51,44 @@ def Circuit(circuit: qiskit.circuit.QuantumCircuit, with_regs=False) -> list[inn
     else:
         return [Instruction(instr) for instr in circuit.data]
 
-def to_qiskit(instrs: list[inner.Instruction]):
-    from collections import defaultdict
+def to_qiskit(instrs: list[inner.Instruction] | list[inner.Instr]):
+    if isinstance(instrs[0], inner.Instr):
+        nqubits = max(q for i in instrs for q in i.qargs) + 1
 
-    qregs = defaultdict(int)
-    for instr in instrs:
-        for qbit in instr.qargs:
-            qregs[qbit.regid] = max(qregs[qbit.regid], qbit.index + 1) 
-    qregs = {regid: qiskit.circuit.QuantumRegister(size, regid) for regid, size in qregs.items()}
+        circuit = qiskit.circuit.QuantumCircuit(nqubits)
 
-    cregs = defaultdict(int)
-    for instr in instrs:
-        for cbit in instr.cargs:
-            cregs[cbit.regid] = max(cregs[cbit.regid], cbit.index + 1)
-    cregs = {regid: qiskit.circuit.ClassicalRegister(size, regid) for regid, size in cregs.items()}
+        for instr in instrs:
+            getattr(circuit, instr.gate.name)(
+                *instr.gate.params_f,
+                *instr.qargs,
+            )
 
-    circuit = qiskit.circuit.QuantumCircuit(*qregs.values(), *cregs.values())
+        return circuit
+    else:
+        from collections import defaultdict
 
-    for instr in instrs:
-        getattr(circuit, instr.gate.name)(
-            *instr.gate.params_f,
-            *[qiskit.circuit.Qubit(qregs[qbit.regid], qbit.index) for qbit in instr.qargs],
-            *[qiskit.circuit.Clbit(cregs[cbit.regid], cbit.index) for cbit in instr.cargs],
-        )
+        qregs = defaultdict(int)
+        for instr in instrs:
+            for qbit in instr.qargs:
+                qregs[qbit.regid] = max(qregs[qbit.regid], qbit.index + 1) 
+        qregs = {regid: qiskit.circuit.QuantumRegister(size, regid) for regid, size in qregs.items()}
 
-    return circuit
+        cregs = defaultdict(int)
+        for instr in instrs:
+            for cbit in instr.cargs:
+                cregs[cbit.regid] = max(cregs[cbit.regid], cbit.index + 1)
+        cregs = {regid: qiskit.circuit.ClassicalRegister(size, regid) for regid, size in cregs.items()}
+
+        circuit = qiskit.circuit.QuantumCircuit(*qregs.values(), *cregs.values())
+
+        for instr in instrs:
+            getattr(circuit, instr.gate.name)(
+                *instr.gate.params_f,
+                *[qiskit.circuit.Qubit(qregs[qbit.regid], qbit.index) for qbit in instr.qargs],
+                *[qiskit.circuit.Clbit(cregs[cbit.regid], cbit.index) for cbit in instr.cargs],
+            )
+
+        return circuit
 
 ECCs = inner.ECCs
 ECC = inner.ECC
@@ -86,3 +99,4 @@ IdentityCirc = inner.IdentityCirc
 IdentityProver = inner.IdentityProver
 RawECCs = inner.RawECCs
 Evaluator = inner.Evaluator
+Proof = inner.Proof

@@ -20,27 +20,39 @@ def generate_eccs(gate_set: str, ngates: int, nqubits: int = 5, naive=False) -> 
     
     start = time.time_ns()
     evaluator = quclif.Evaluator(nqubits=nqubits)
+    (ecc_set, counters) = quclif.RawECCs.generate(
+        evaluator,
+        gates=[quclif.Gate(g.lower()) for g in GATE_SETS[gate_set]],
+        max_size=ngates,
+    )
+    duration = time.time_ns() - start
+
     if naive:
-        (ecc_set, counters) = quclif.RawECCs.generate_naive(
+        start = time.time_ns()
+        (ecc_set0, counters) = quclif.RawECCs.generate_naive(
             evaluator,
             gates=[quclif.Gate(g.lower()) for g in GATE_SETS[gate_set]],
             max_size=ngates,
         )
-    else:
-        (ecc_set, counters) = quclif.RawECCs.generate(
-            evaluator,
-            gates=[quclif.Gate(g.lower()) for g in GATE_SETS[gate_set]],
-            max_size=ngates,
-        )
+        duration = time.time_ns() - start
+
+
+        print("Checking naive ECCs are subset of optimized ECCs...")
+        start = time.time_ns()
+        ecc_set0.check_identity_subset(ecc_set, evaluator);
+        checking_time = time.time_ns() - start
+        ecc_set = ecc_set0
     ecc_set = ecc_set.simplify()
     assert len(ecc_set.check()) == 0
     
     metadata = {
-        'time': time.time_ns() - start,
+        'time': duration,
         'counters': counters,
         'eccs': len(ecc_set),
         'identities': len(ecc_set.to_identity_circuits()),
-    }
+    }   
+    if naive:
+        metadata['checking_time'] = checking_time
     
     os.makedirs(".cache", exist_ok=True)
     ecc_set.dump_postcard(name)

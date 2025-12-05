@@ -44,22 +44,37 @@ def get_dataframe(f):
     return df
 
 if __name__ == "__main__":
-    a = {
-        "Number of Rules": lambda x: len(x['prove']['rules']) if 'prove' in x and 'rules' in x['prove'] else 'w',
-        "Proving Time (s)": lambda x: x['prove']['time'] / 1e9 if 'prove' in x and 'time' in x['prove'] else 'w',
-        "Synthesis Time (s)": lambda x: x['eccset']['time'] / 1e9 if 'eccset' in x and 'time' in x['eccset'] else 'w',
-        "Synthesized ECCs": lambda x: x['eccset']['eccs'] if 'eccset' in x and 'eccs' in x['eccset'] else 'w',
-        "Synthesized Identities": lambda x: x['eccset']['identities'] if 'eccset' in x and 'identities' in x['eccset'] else 'w',
-
-        # "[Naive] Number of Rules": lambda x: len(x['prove-naive']['rules']) if 'prove-naive' in x and 'rules' in x['prove-naive'] else 'w',
-        # "[Naive] Proving Time (s)": lambda x: x['prove-naive']['time'] / 1e9 if 'prove-naive' in x and 'time' in x['prove-naive'] else 'w',
-        # "[Naive] Synthesis Time (s)": lambda x: x['eccset-naive']['time'] / 1e9 if 'eccset-naive' in x and 'time' in x['eccset-naive'] else 'w',
-        # "[Naive] Synthesized ECCs": lambda x: x['eccset-naive']['eccs'] if 'eccset-naive' in x and 'eccs' in x['eccset-naive'] else 'w',
-        # "[Naive] Synthesized Identities": lambda x: x['eccset-naive']['identities'] if 'eccset-naive' in x and 'identities' in x['eccset-naive'] else 'w',
-    }
+    pd.set_option('display.max_colwidth', None)
+    pd.set_option('display.max_columns', None)
+    if '--naive' in sys.argv:
+        a = {
+            "[Naive] Number of Rules": lambda x: len(x['prove-naive']['rules']) if 'prove-naive' in x and 'rules' in x['prove-naive'] else 'w',
+            "[Naive] Proving Time (s)": lambda x: x['prove-naive']['time'] / 1e9 if 'prove-naive' in x and 'time' in x['prove-naive'] else 'w',
+            "[Naive] Synthesis Time (s)": lambda x: x['eccset-naive']['time'] / 1e9 if 'eccset-naive' in x and 'time' in x['eccset-naive'] else 'w',
+            "[Naive] Synthesis Result Checking Time (s)": lambda x: x['eccset-naive']['checking_time'] / 1e9 if 'eccset-naive' in x and 'checking_time' in x['eccset-naive'] else 'w',
+            "[Naive] Synthesized ECCs": lambda x: x['eccset-naive']['eccs'] if 'eccset-naive' in x and 'eccs' in x['eccset-naive'] else 'w',
+            "[Naive] Synthesized Identities": lambda x: x['eccset-naive']['identities'] if 'eccset-naive' in x and 'identities' in x['eccset-naive'] else 'w',
+        }
+    else:
+        a = {
+            "Number of Rules": lambda x: len(x['prove']['rules']) if 'prove' in x and 'rules' in x['prove'] else 'w',
+            "Proving Time (s)": lambda x: x['prove']['time'] / 1e9 if 'prove' in x and 'time' in x['prove'] else 'w',
+            "Synthesis Time (s)": lambda x: x['eccset']['time'] / 1e9 if 'eccset' in x and 'time' in x['eccset'] else 'w',
+            "Synthesized ECCs": lambda x: x['eccset']['eccs'] if 'eccset' in x and 'eccs' in x['eccset'] else 'w',
+            "Synthesized Identities": lambda x: x['eccset']['identities'] if 'eccset' in x and 'identities' in x['eccset'] else 'w',
+        }
     if '--latex' in sys.argv:
         for name, func in a.items():
-            print(get_dataframe(func).to_latex(caption=name, float_format="%.2f"), end="\n\n")
+            text = get_dataframe(func).to_latex(caption=name, float_format="%.2f")
+            text = text.replace(" logical ",  r"\classical")
+            text = text.replace(" common-clifford-t ", r"\commoncliffordt")
+            text = text.replace(" clifford-t1/2 ", r"\cliffordthalf")
+            text = text.replace(" clifford-rz(pi/3) ", r"\cliffordrz")
+            text = text.replace(" clifford-t ", r"\cliffordt")
+            text = text.replace(" clifford ", r"\clifford")
+            text = text.replace(r"\toprule", r"\toprule $k$")
+
+            print(text, end="\n\n")
             print()
             print()
     else:

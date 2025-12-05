@@ -11,8 +11,8 @@ from qiskit.circuit import library as qlib
 
 from generate_eccs import generate_eccs
 
-def build_prover(gate_set: str, ngates: int, nqubits: int = 5) -> tuple[quclif.IdentityProver, dict]:
-    name = f".cache/prover-{gate_set.replace("/", "::")}-{ngates}-{nqubits}.prover"
+def build_prover(gate_set: str, ngates: int, nqubits: int = 5, naive=False) -> tuple[quclif.IdentityProver, dict]:
+    name = f".cache/prover-{gate_set.replace("/", "::")}-{ngates}-{nqubits}{"-naive" if naive else ""}.prover"
     if os.path.exists(name) and os.path.exists(name + ".json"):
         print(f"Loading prover for gate set '{gate_set}' with {ngates} gates.")
         prover = quclif.IdentityProver.from_postcard(name)
@@ -21,7 +21,7 @@ def build_prover(gate_set: str, ngates: int, nqubits: int = 5) -> tuple[quclif.I
         return prover, metadata
     
     print(f"Building prover for gate set '{gate_set}' with {ngates} gates.")
-    eccs, _ = generate_eccs(gate_set, ngates, nqubits)
+    eccs, _ = generate_eccs(gate_set, ngates, nqubits, naive=naive)
     
     start = time.time_ns()
     prover = quclif.IdentityProver.build_from_eccs(eccs)

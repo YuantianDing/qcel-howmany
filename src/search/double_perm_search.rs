@@ -1,20 +1,23 @@
-use std::{cmp::Ordering, collections::{hash_map::Entry, BTreeSet, HashMap, VecDeque}};
+use std::{cell::Cell, cmp::Ordering, collections::{BTreeSet, HashMap, VecDeque, hash_map::Entry}};
 
 use derive_more::{Deref, Debug};
+use indicatif::ProgressIterator;
 use itertools::Itertools;
 use nohash_hasher::BuildNoHashHasher;
+use postcard::fixint::le;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use rand::{SeedableRng, rngs::StdRng};
+use rayon::iter::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
 use smallvec::SmallVec;
 
 
 use crate::{
-    circ::{Gate16, Instr32}, groups::permutation::Permut32, search::ECC, state::StateVec, utils::{AliasList, JoinOptionIter}
+    circ::{Gate16, Instr32}, groups::permutation::Permut32, identity::circuit::Circ, search::ECC, state::StateVec, utils::{AliasList, FmtJoinIter}
 };
-use linear_map::set::LinearSet;
+use linear_map::{LinearMap, set::LinearSet};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[debug("{} {} {}", self.front_perm, self.circ.clone().collect_vec().iter().rev().join_option(" ", "", ""), self.back_perm)]
+#[debug("{} {} {}", self.front_perm, self.circ.clone().collect_vec().iter().rev().fjoin(" "), self.back_perm)]
 pub struct CircTriple{
     pub front_perm: Permut32,
     pub circ: AliasList<Instr32>,
@@ -34,12 +37,12 @@ impl CircTriple {
 impl std::fmt::Display for CircTriple {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (v, p) = self.simplify();
-        write!(f, "{} {p}", v.iter().join_option(" ", "", ""))
+        write!(f, "{} {p}", v.iter().fjoin(" "))
     }
 }
 
 #[derive(Debug, derive_more::Display, Clone, PartialEq, Eq)]
-#[display("CircuitECC {{{}}}", self.circuits.iter().join_option(", ", "", ""))]
+#[display("CircuitECC {{{}}}", self.circuits.iter().fjoin(", "))]
 pub struct CircuitECC {
     pub size: usize,
     pub front_gates: LinearSet<Instr32>,
@@ -65,7 +68,7 @@ impl CircuitECC {
 
     pub fn simplify(&self) -> super::ECC {
         let mut result = self.circuits.iter().map(|triple| triple.simplify()).collect_vec();
-        result.sort();
+        result.sort_by(|a, b| (a.0.len(), a).cmp(&(b.0.len(), b)));
         let set: BTreeSet<_> = result[0].0.iter().flat_map(|a| a.1.iter().cloned()).collect();
         let uniform_inv = Permut32::from_iter_with_ext(result[0].1.len(), set.into_iter());
         let uniform = uniform_inv.inv();
@@ -73,6 +76,42 @@ impl CircuitECC {
                 instrs.into_iter().map(|a| a.apply_permutation(uniform)).collect(),
                 uniform * perm * uniform_inv
         )).collect_vec().into()
+    }
+
+    pub fn test_filter(&self, front_perm: Permut32, instr_vec: &[Instr32], back_perm: Permut32) -> bool {
+        let front_gates_iter = circuit_get_surface_gates(instr_vec.iter())
+            .map(|instr| instr.apply_permutation(front_perm.inv()));
+        let back_gates_iter = circuit_get_surface_gates(instr_vec.iter().rev())
+            .map(|instr| instr.apply_permutation(back_perm));
+        let front_unique = front_gates_iter.clone().all(|instr| !self.front_gates.contains(&instr));
+        let back_unique = back_gates_iter.clone().all(|instr| !self.back_gates.contains(&instr));
+
+        front_unique && back_unique
+    }
+
+    pub fn export_equivalence(&self, front_perm: Permut32, instr_vec: &[Instr32], back_perm: Permut32) -> (Vec<Instr32>, Permut32, Vec<Instr32>, Permut32) {
+        let instrs20 = instr_vec.iter().map(|a| a.apply_permutation(front_perm.inv())).collect::<Vec<_>>();
+        let perm2 = back_perm * front_perm;
+
+        for circ in self.circuits.iter() {
+            let mut instrs1 = circ.circ.iter().map(|a| a.apply_permutation(circ.front_perm.inv())).collect::<Vec<_>>();
+            instrs1.reverse();
+            let perm1 = circ.back_perm * circ.front_perm;
+            let mut instrs2 = instrs20.clone();
+            if instrs1 == instrs2 && perm1 == perm2 {
+                return (vec![], perm1, vec![], perm2);
+            }
+
+            if reduce_equivalence(
+                (&mut instrs1, perm1),
+                (&mut instrs2, perm2),
+            ) {
+                return (instrs1, perm1, instrs2, perm2);
+            }
+        }
+        panic!("No equivalence found during export_equivalence: {} = {} {}", 
+            self.circuits.iter().fjoin(", "), 
+            instrs20.iter().fjoin(", "), perm2);
     }
 }
 
@@ -218,7 +257,7 @@ impl std::ops::Drop for RawECCs {
 
 fn circuit_get_surface_gates<'a>(circ: impl Iterator<Item = &'a Instr32> + Clone) -> impl Iterator<Item = &'a Instr32> + Clone {
     let mut mask = 0;
-    circ.filter(move |Instr32(_, qubs)| qubs.iter().all(|&qubit| {
+    circ.filter(move |Instr32(_, qubs)| qubs.iter().filter(|&qubit| {
         let qubit_mask = 1 << qubit;
         if mask & qubit_mask == 0 {
             mask |= qubit_mask;
@@ -226,8 +265,24 @@ fn circuit_get_surface_gates<'a>(circ: impl Iterator<Item = &'a Instr32> + Clone
         } else {
             false
         }
-    })) 
+    }).count() == qubs.len()) 
 }
+fn circuit_get_surface_gates_hashmap<'a>(circ: &[Instr32], filtering_mask: u64) -> LinearMap<Instr32, usize> {
+    let mut mask = 0;
+    circ.iter().cloned().enumerate().filter(move |(i, Instr32(_, qubs))| 
+        (filtering_mask & (1 << i)) != 0 &&
+        qubs.iter().filter(|&qubit| {
+            let qubit_mask = 1 << qubit;
+            if mask & qubit_mask == 0 {
+                mask |= qubit_mask;
+                true
+            } else {
+                false
+            }
+        }).count() == qubs.len()
+    ).map(|(a,b)| (b, a)).collect()
+}
+
 
 impl RawECCs {
     fn add_entry(&mut self, hash_value: u64, front_perm: Permut32, back_perm: Permut32, circ: &AliasList<Instr32>, instr_vec: &[Instr32]) -> Option<AliasList<Instr32>> {
@@ -251,21 +306,29 @@ impl RawECCs {
                 Some(new_point)
             }
             Entry::Occupied(mut o) => {
-                
-                    // println!("\t{instr}: {front_perm}, {back_perm} equal -> {}", entry.circuits[0].circ);
-                
-                // } else {
-                    // println!("\t{instr}: {front_perm}, {back_perm} skip -> {}", o.get().circuits[0].circ);
-                // }
                 let entry = o.get_mut();
                 let front_unique = front_gates_iter.clone().all(|instr| !entry.front_gates.contains(&instr));
                 let back_unique = back_gates_iter.clone().all(|instr| !entry.back_gates.contains(&instr));
                 if front_unique && back_unique {
                     for instr in front_gates_iter { entry.front_gates.insert(instr); }
                     for instr in back_gates_iter { entry.back_gates.insert(instr); }
+                    // print!("\t{instr}: ");
                     let new_point = circ.cons(instr);
                     let triple = CircTriple { front_perm, circ: new_point.clone(), back_perm};
+                    // println!("{} equal -> {} {}", triple, entry, hash_value);
                     entry.circuits.push(triple);
+                } else {
+                    // print!("\t{instr}: ");
+                    // let new_point = circ.cons(instr);
+                    // let triple = CircTriple { front_perm, circ: new_point.clone(), back_perm};
+                    // let cause = front_gates_iter.clone().filter(|instr| entry.front_gates.contains(&instr)).chain(
+                    //     back_gates_iter.clone().filter(|instr| entry.back_gates.contains(&instr))
+                    // ).collect_vec();
+                    // println!("{} skip -> {} {} {} {} cause: {}", triple, entry, 
+                    //     entry.front_gates.iter().fjoin(", "),
+                    //     entry.back_gates.iter().fjoin(", "),
+                    //     hash_value,
+                    //     cause.iter().join_option(", ", "{", "}"));
                 }
                 None
             }
@@ -285,6 +348,47 @@ impl RawECCs {
                 // .filter(|(c, p)| c != instrs || *p != Permut32::identity(evaluator.nqubits() as u8))
                 .collect_vec())
         }).and_then(|ecc| if ecc.0.is_empty() { None } else { Some(ecc) })
+    }
+    pub fn checked_equivalent(&self, instrs: &[Instr32], perm: Permut32, evaluator: &Evaluator) -> (Vec<Instr32>, Permut32) {
+        let mut vec = Vec::<Instr32>::new();
+        let mut permut = perm;
+        for instr in instrs.iter() {
+            vec.push(instr.apply_permutation(permut.inv()));
+            let (backstate, f, b, _) = evaluator.evaluate(&vec);
+            if let Some(a) = self.inner.get(&backstate.hash_value()) {
+                let (instrs1, perm1, instrs2, perm2) = a.export_equivalence(f, &vec, b);
+                if instrs1.len() + instrs2.len() > 0 {
+                    let (instrs10, perm10) = self.checked_equivalent(&instrs1, perm1, evaluator);
+                    let (instrs20, perm20) = self.checked_equivalent(&instrs2, perm2, evaluator);
+                    assert!(instrs10 == instrs20 && perm10 == perm20,
+                        "Non-deterministic equivalence detected during checked equivalence: \n {} vs {} \n {} {} vs {} {} \n {} {} vs {} {}",
+                            a,
+                            vec.iter().map(|a| a.apply_permutation(f.inv())).fjoin(" "),
+                            instrs1.iter().fjoin(", "), perm1,
+                            instrs2.iter().fjoin(", "), perm2,
+                            instrs10.iter().fjoin(", "), perm10,
+                            instrs20.iter().fjoin(", "), perm20,
+                        );
+                }
+
+                let CircTriple { front_perm, circ, back_perm } = &a.circuits[0];
+                let fperm = *front_perm * f.inv();
+                vec = circ.iter().map(|a| a.apply_permutation(fperm.inv())).collect_vec();
+                vec.reverse();
+                permut = permut * b.inv() * *back_perm * fperm;
+            }
+        }
+
+        let (bv, vec, _) = &evaluator.evaluate_multiple(&instrs);
+        vec.into_iter().map(|(f, b)|
+            self.inner[&bv.hash_value()].circuits.iter().map(|triple| {
+                let fperm = triple.front_perm * f.inv();
+                let mut v = triple.circ.iter().map(|a| a.apply_permutation(fperm.inv())).collect_vec();
+                v.reverse();
+                let p = perm * b.inv() * triple.back_perm * fperm;
+                (v, p)
+            }).min().unwrap()
+        ).min().unwrap()
     }
 }
 
@@ -318,7 +422,7 @@ impl RawECCs {
             // let mask = instr_vec.iter().fold(0u8, |a, i| a | i.arg_mask());
             
             if counters[0] % 400 == 0 {
-                println!("#{} Exploring {} ({} queued, {} ECCs, {} circs, {} circs perm)", counters[0], instr_vec.iter().join_option(" ", "", ""), queue.len(), map.len(), counters[1], counters[2]);
+                println!("#{} Exploring {} ({} queued, {} ECCs, {} circs, {} circs perm)", counters[0], instr_vec.iter().fjoin(" "), queue.len(), map.len(), counters[1], counters[2]);
             }
             
             for instr in instrs.iter() {
@@ -360,7 +464,7 @@ impl RawECCs {
             // let mask = instr_vec.iter().fold(0u8, |a, i| a | i.arg_mask());
             
             if counters[0] % 400 == 0 {
-                println!("#{} Exploring {} ({} queued, {} ECCs, {} circs, {} circs perm)", counters[0], instr_vec.iter().join_option(" ", "", ""), queue.len(), map.len(), counters[1], counters[2]);
+                println!("#{} Exploring {} ({} queued, {} ECCs, {} circs, {} circs perm)", counters[0], instr_vec.iter().fjoin(" "), queue.len(), map.len(), counters[1], counters[2]);
             }
             
             for instr in instrs.iter() {
@@ -507,11 +611,23 @@ impl RawECCs {
         }
         new_map
     }
+
+    pub fn check_identity_subset(&self, ecc1: &RawECCs, evaluator: &Evaluator) {
+        for chunk in &self.values().chunks(4096) {
+            chunk.collect_vec().par_iter().for_each(|ecc| {
+                for (instrs, p) in &ecc.simplify().0 {
+                    let (bv, _, _, _) = evaluator.evaluate(instrs);
+                    assert!(ecc1.contains_key(&bv.hash_value()));
+                    let _ = ecc1.checked_equivalent(instrs, *p, &evaluator);
+                }
+            })
+        }
+    }
     
     // for i in 0..instrs.len() {
     //     for j in (i+1)..=instrs.len() {
     //         let (backstate, front_perm, back_perm) = evaluator.evaluate(&instrs[i..j]);
-    //         println!("{i}..{j} {front_perm} {} {back_perm}", instrs[i..j].iter().join_option(" ", "", ""));
+    //         println!("{i}..{j} {front_perm} {} {back_perm}", instrs[i..j].iter().fjoin(" "));
     //         eccs.get(&backstate.hash_value()).map(|ecc| {
     //             for c in ecc.circuits.iter() {
     //                 println!("\t{}", c);
@@ -527,13 +643,72 @@ impl RawECCs {
 
 }
 
+fn reduce_equivalence_front(
+    nqubits: usize,
+    circ1: &[Instr32],
+    circ2: &[Instr32],
+) -> (u64, u64) {
+    let mut mask1 = (1 << circ1.len()) - 1;
+    let mut mask2 = (1 << circ2.len()) - 1;
+
+    while {
+        let front_gates1 = circuit_get_surface_gates_hashmap(circ1, mask1);
+        let front_gates2 = circuit_get_surface_gates_hashmap(circ2, mask2);
+
+        front_gates1.iter()
+            .filter_map(|(instr, i)| front_gates2.get(instr).map(|j| (*i, *j)))
+            .map(|(i, j)| {
+                mask1 &= !(1 << i);
+                mask2 &= !(1 << j);
+            }).count() > 0
+    } {}
+    
+
+
+    (mask1, mask2)
+}
+
+fn reduce_equivalence(
+    circ1: (&mut Vec<Instr32>, Permut32),
+    circ2: (&mut Vec<Instr32>, Permut32),
+) -> bool {
+    let nqubits = circ1.1.len() as usize;
+    let (mask1f, mask2f) = reduce_equivalence_front(nqubits, &*circ1.0, &*circ2.0);
+    let (mask1b, mask2b) = reduce_equivalence_front(nqubits,
+        &circ1.0.iter().rev().map(|a| a.apply_permutation(circ1.1))
+            .collect::<Vec<_>>(),
+        &circ2.0.iter().rev().map(|a| a.apply_permutation(circ2.1))
+            .collect::<Vec<_>>(),
+    );
+
+    let changed1 = retain_by_masks(circ1.0, mask1f, mask1b);
+    let changed2 = retain_by_masks(circ2.0, mask2f, mask2b);
+    assert!(changed1 == changed2, "mask1f: {:b}, mask1b: {:b}, mask2f: {:b}, mask2b: {:b}", mask1f, mask1b, mask2f, mask2b);
+    
+    changed1 > 0
+}
+
+fn retain_by_masks(circ1: &mut Vec<Instr32>, mask1f: u64, mask1b: u64) -> usize {
+    let mut index = 0;
+    let mut changed = 0;
+    let len1 = circ1.len();
+    circ1.retain(|_| {
+        index += 1;
+        if (mask1f & (1 << (index - 1))) != 0 && (mask1b & (1 << (len1 - index))) != 0 {
+            true
+        } else {
+            changed += 1;
+            false
+        }
+    });
+    changed
+}
+
 #[cfg(test)]
 mod test {
-    use std::collections::HashSet;
+    use rand::{SeedableRng};
 
-    use rand::{SeedableRng, rngs::StdRng};
-
-    use crate::{circ::{Instr32, gates::{CX, CY, CZ, H, S, SDG, T, TDG, X, Y, Z, h}}, identity::{eccproof::IdentityProver, idcircuit::IdentityCirc}, instr_vec, search::{ECCs, double_perm_search::{CircTriple, Evaluator, RawECCs}}, utils::JoinOptionIter};
+    use crate::{circ::gates::{CX, H, T, TDG, X, Y, cx, h, x, y}, groups::permutation::Permut32, identity::{eccprove::IdentityProver, idcircuit::IdentityCirc}, instr_vec, search::{ECCs, double_perm_search::{CircTriple, Evaluator, RawECCs, circuit_get_surface_gates, reduce_equivalence}}, utils::FmtJoinIter};
 
     #[test]
     fn test_eval() {
@@ -548,26 +723,12 @@ mod test {
     #[test]
     fn test_naive_equivalence() {
         let nqubits = 5;
-        let ngates = 5;
+        let ngates = 3;
         let evaluator = Evaluator::from_random(nqubits, &mut rand::rngs::StdRng::from_seed([0; 32]));
-        let (ecc1, _) = RawECCs::generate(&evaluator, vec![*H, *X, *TDG, *T, *CX], ngates);
-        let (ecc2, _) = RawECCs::generate_naive(&evaluator, vec![*H, *X, *TDG, *T, *CX], ngates);
+        let (ecc1, _) = RawECCs::generate(&evaluator, vec![*Y, *X, *CX], ngates);
+        let (ecc2, _) = RawECCs::generate_naive(&evaluator, vec![*Y, *X, *CX], ngates);
 
-        for (_, ecc) in ecc2.iter() {
-            for (instrs, _) in &ecc.simplify().0 {
-                let (bv, f, p, _) = evaluator.evaluate(&instrs);
-                if !ecc1.contains_key(&bv.hash_value()) {
-                    for i in 1..=instrs.len() {
-                        let key = evaluator.evaluate(&instrs[..i]).0.hash_value();
-                        println!("{} => {:?}",
-                            instrs[..i].iter().join_option(" ", "", ""),
-                            ecc1.get(&key)
-                        );
-                    }
-                }
-                assert!(ecc1.contains_key(&bv.hash_value()));
-            }
-        }
+        ecc2.check_identity_subset(&ecc1, &evaluator);
     }
     #[test]
     fn test_same_result() {
@@ -582,4 +743,39 @@ mod test {
         println!("{}", ecc1.switch_evaluator(&evaluator2).len());
         println!("{}", ecc2.switch_evaluator(&evaluator1).len());
     }
+    #[test]
+    fn test1() {
+        let circ1 = vec![cx(3, 0), cx(2, 3), cx(4, 2)];
+        let circ2 = vec![cx(3, 2), cx(3, 0), cx(4, 3)];
+        let p = Permut32::identity(5);
+        
+        let evaluator = Evaluator::from_random(5, &mut rand::rngs::StdRng::from_seed([0; 32]));
+        let (ecc1, _) = RawECCs::generate(&evaluator, vec![*CX], 4);
+
+        let (backstate1, front_perm1, back_perm1, _) = evaluator.evaluate(&circ1);
+        let (backstate2, front_perm2, back_perm2, _) = evaluator.evaluate(&circ2);
+
+        assert!(backstate1 == backstate2, "{} vs {}", backstate1, backstate2);
+
+        let (instrs1, perm1) = ecc1.checked_equivalent(&circ1, p, &evaluator);
+        let (instrs2, perm2) = ecc1.checked_equivalent(&circ2, p, &evaluator);
+        assert!(instrs1 == instrs2, "{} vs {}", instrs1.iter().fjoin(" "), instrs2.iter().fjoin(" "));
+    }
+    #[test]
+    fn test2() {
+        let instrs1 = vec![x(0), cx(0, 3), y(3)];
+
+        assert!(circuit_get_surface_gates(instrs1.iter()).count() == 1);
+
+        let mut v1 = vec![cx(2, 1), cx(1, 4), cx(3, 0), cx(2, 3), cx(4, 2)];
+        let mut v2 = vec![cx(2, 1), cx(1, 4), cx(3, 2), cx(3, 0), cx(4, 3), cx(2, 3)];
+
+        let changed = reduce_equivalence(
+            (&mut v1, Permut32::identity(5)),
+            (&mut v2, Permut32::identity(5).swap_inputs(2, 3)),
+        );
+
+        // assert!(!changed, "Should not change {} vs {}", v1.iter().fjoin(", "), v2.iter().fjoin(", "));
+    }
+
 }

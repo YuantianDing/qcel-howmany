@@ -20,6 +20,9 @@ use std::collections::{HashSet, VecDeque};
 pub struct IdentityCirc(Circ);
 
 impl IdentityCirc {
+    pub fn new() -> Self {
+        Self(Circ::new(Vec::new(), crate::groups::permutation::Permut32::identity(0)))
+    }
     pub fn into_inner(self) -> Circ {
         self.0
     }
@@ -127,15 +130,29 @@ impl IdentityCirc {
     }
     pub fn check(&self) -> bool {
         let mut state1 = StateVec::from_random(&mut StdRng::from_os_rng(), self.nqubits() as u32);
-        let state2 = state1.clone();
+        let mut state2 = state1.clone();
+        let len = self.0.instrs.len();
 
-        for Instr32(g, qargs) in self.0.instrs.iter() {
+        for Instr32(g, qargs) in self.0.instrs[..len/2].iter() {
             state1.apply(&qargs, *g);
         }
-        state1.apply_permutation(self.perm);
         state1.normalize_arg();
+
+        state2.apply_permutation(self.perm.inverse());
+        for Instr32(g, qargs) in self.0.instrs[len/2..].iter().rev() {
+            state2.apply(&qargs, g.adjoint());
+        }
+        state2.normalize_arg();
+
+        assert!(state1.loose_eq(&state2), "IdentityCirc: circuit is not identity {state1} {state2}");
         
-        state1 == state2
+        state1.loose_eq(&state2)
+    }
+    pub fn hash_value(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        self.0.hash(&mut hasher);
+        hasher.finish()
     }
 
     pub fn __str__(&self) -> String {

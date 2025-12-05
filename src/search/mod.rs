@@ -3,7 +3,7 @@ use derive_more::{Debug, Deref, DerefMut, From, Index, Into};
 use itertools::Itertools;
 use rand::{SeedableRng, rngs::StdRng};
 
-use crate::{circ::{Instr32, gates::SWAP}, groups::permutation::Permut32, identity::{circuit::Circ, idcircuit::IdentityCirc}, state::StateVec, utils::{DenseIndexMap, JoinOptionIter}};
+use crate::{circ::{Instr32, gates::SWAP}, groups::permutation::Permut32, identity::{circuit::Circ, idcircuit::IdentityCirc}, state::StateVec, utils::{DenseIndexMap, FmtJoinIter}};
 
 
 
@@ -43,7 +43,7 @@ impl std::fmt::Display for ECC {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "ECC {{\n")?;
         for circ in self.circuits() {
-            write!(f, "\t{},\n", circ.iter().join_option(" ", "", ""))?;
+            write!(f, "\t{},\n", circ.iter().fjoin(" "))?;
         }
         write!(f, "}}")
     }

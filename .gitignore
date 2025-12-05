@@ -78,4 +78,4 @@ cargo-flamegraph.trace/
 perf.*
 profile.json.gz
 nohup.out
-.test.py
+**/.test.py
