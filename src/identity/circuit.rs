@@ -1,9 +1,7 @@
 use derive_more::Index;
-use num_traits::sign;
 // use petgraph::graph::{DiGraph, NodeIndex};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 
-use crate::circ::Gate16;
 use crate::identity::idcircuit::IdentityCirc;
 use crate::utils::DenseIndexMap;
 use crate::{circ::Instr32, groups::permutation::Permut32};

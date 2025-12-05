@@ -8,9 +8,8 @@ mod gate;
 pub use gate::*;
 use itertools::Itertools;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
-use smallvec::SmallVec;
 
-use crate::{circ::qargs::QArgs16, groups::permutation::Permut32, utils::JoinOptionIter};
+use crate::{groups::permutation::Permut32, utils::JoinOptionIter};
 pub mod param;
 
 #[gen_stub_pyclass]

@@ -3,12 +3,10 @@ use pyo3::{Bound, PyAny};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use rand::{self, SeedableRng};
 use rand::rngs::StdRng;
-use rayon::iter::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
-use serde_json::Value;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::fmt;
 use std::sync::LazyLock;
 
-use crate::circ::Gate16;
 // use crate::identity::circuit::CircGraph;
 use crate::{circ::Instr32, identity::circuit::Circ, state::StateVec};
 use colored::Colorize;
@@ -129,7 +127,7 @@ impl IdentityCirc {
     }
     pub fn check(&self) -> bool {
         let mut state1 = StateVec::from_random(&mut StdRng::from_os_rng(), self.nqubits() as u32);
-        let mut state2 = state1.clone();
+        let state2 = state1.clone();
 
         for Instr32(g, qargs) in self.0.instrs.iter() {
             state1.apply(&qargs, *g);

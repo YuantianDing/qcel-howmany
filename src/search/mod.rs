@@ -1,11 +1,9 @@
-use std::collections::HashSet;
 
-use derive_more::{Debug, Deref, DerefMut, Display, From, Index, Into};
+use derive_more::{Debug, Deref, DerefMut, From, Index, Into};
 use itertools::Itertools;
 use rand::{SeedableRng, rngs::StdRng};
-use smallvec::SmallVec;
 
-use crate::{circ::{Gate16, Instr32, gates::SWAP}, groups::permutation::Permut32, identity::{circuit::Circ, idcircuit::IdentityCirc}, search::double_perm_search::{Evaluator, RawECCs}, state::StateVec, utils::{DenseIndexMap, JoinOptionIter}};
+use crate::{circ::{Instr32, gates::SWAP}, groups::permutation::Permut32, identity::{circuit::Circ, idcircuit::IdentityCirc}, state::StateVec, utils::{DenseIndexMap, JoinOptionIter}};
 
 
 

@@ -116,7 +116,7 @@ impl<T: 'static> Iterator for AliasList<T> {
 
 #[extension(pub trait JoinOptionIter)]
 impl<T, Iter: Iterator<Item=T> + Clone> Iter where Self : Sized {
-    fn join_option<Sep, Start, End>(&self, sep: Sep, start: Start, end: End) -> JoinOption<Self, Sep, Start, End> {
+    fn join_option<Sep, Start, End>(&self, sep: Sep, start: Start, end: End) -> JoinOption<'_, Self, Sep, Start, End> {
         JoinOption {
             iter: &self,
             sep,

@@ -1,14 +1,13 @@
-use std::{collections::HashSet, fs::File, io::{BufReader, BufWriter}};
 
 use indicatif::ProgressIterator;
 use itertools::Itertools;
-use quclif::{circ::{gates::*, Instr32}, identity::{eccproof::IdentityProver, idcircuit::IdentityCirc}, instr_vec, search::{double_perm_search::{CircTriple, Evaluator, RawECCs}, ECCs}, utils::JoinOptionIter};
+use quclif::{circ::gates::*, search::double_perm_search::{Evaluator, RawECCs}, utils::JoinOptionIter};
 use rand::SeedableRng;
 
 fn main() {
     let nqubits = 5;
     let ngates = 6;
-    let use_eqclass = true;
+    let _use_eqclass = true;
     let evaluator = Evaluator::from_random(nqubits, &mut rand::rngs::StdRng::from_seed([0; 32]));
     let start1 = std::time::Instant::now();
     let (ecc1, _) = RawECCs::generate(&evaluator, vec![*H, *X, *TDG, *T, *CX], ngates);
@@ -39,7 +38,7 @@ fn main() {
 
     for (_, ecc) in ecc2.iter().progress() {
         for (instrs, _) in &ecc.simplify().0 {
-            let (bv, f, p, _) = evaluator.evaluate(&instrs);
+            let (bv, _f, _p, _) = evaluator.evaluate(&instrs);
             if !ecc1.contains_key(&bv.hash_value()) {
                 for i in 1..=instrs.len() {
                     let key = evaluator.evaluate(&instrs[..i]).0.hash_value();

@@ -6,7 +6,7 @@ use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use rayon::iter::ParallelIterator;
 use indicatif::ProgressIterator;
 
-use crate::{groups::permutation::Permut32, identity::{circuit::Circ, idcircuit::{IdentityCirc, IdentitySubcircuit}}, search::{ECCs, ECC}};
+use crate::{identity::{circuit::Circ, idcircuit::{IdentityCirc, IdentitySubcircuit}}, search::{ECCs, ECC}};
 
 #[gen_stub_pyclass]
 #[pyo3::pyclass]

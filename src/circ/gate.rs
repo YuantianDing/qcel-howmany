@@ -1,20 +1,17 @@
-use std::{cell::RefCell, collections::HashMap, hash::Hasher, sync::LazyLock};
+use std::{hash::Hasher, sync::LazyLock};
 
 use derive_more::Display;
 use either::Either;
 use nalgebra::DMatrix;
-use nohash_hasher::BuildNoHashHasher;
 use crate::Qcplx;
 use numpy::{Complex64, PyArray2, PyArrayLike2, ToPyArray};
 use pyo3::PyResult;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
-use serde::{Deserialize, Serialize, ser::SerializeStruct};
-use serde_json::Value;
+use serde::{Deserialize, Serialize};
 use spin::RwLock;
 
 use crate::{
     circ::{Argument, Instr32, Instruction, gates::initial_gates, param::{NumericError, evaluate_with_pi}},
-    Qreal,
     utils::JoinOptionIter,
 };
 

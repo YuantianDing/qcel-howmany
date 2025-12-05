@@ -1,7 +1,7 @@
-use std::{cmp::Ordering, sync::LazyLock, vec};
+use std::{cmp::Ordering, sync::LazyLock};
 
 use itertools::Itertools;
-use pyo3::{types::{PyAnyMethods, PyTuple}, Bound, FromPyObject, IntoPyObject, Py, PyErr};
+use pyo3::{types::{PyAnyMethods, PyTuple}, Bound, FromPyObject, IntoPyObject, PyErr};
 use pyo3_stub_gen::PyStubType;
 
 use crate::utils::DenseIndexMap;
@@ -193,7 +193,7 @@ impl Permut32 {
         self.set(8, value);
     }
     pub fn shrink(mut self, new_len: u8) -> Self {
-        self.raw = (self.raw & ((1 << new_len * 3) - 1));
+        self.raw = self.raw & ((1 << new_len * 3) - 1) ;
         self.set_len(new_len);
         self
     }

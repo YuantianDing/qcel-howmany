@@ -1,13 +1,12 @@
-use nalgebra::{ArrayStorage, ComplexField, DMatrix, DVector, Matrix2, Matrix4, Vector2, Vector4, VectorN};
+use nalgebra::{ComplexField, DMatrix, Matrix2, Matrix4, Vector2, Vector4};
 use numpy::Complex64;
 use crate::{Qreal, Qcplx};
 use pyo3::Bound;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
-use rand::{Rng, SeedableRng, rngs::{StdRng, ThreadRng}};
-use smallvec::SmallVec;
+use rand::{Rng, SeedableRng, rngs::StdRng};
 use core::panic;
 use std::{
-    array, cell::{RefCell, UnsafeCell}, cmp::Ordering, collections::{BTreeMap, BTreeSet, HashMap}, hash::{DefaultHasher, Hash, Hasher}
+    array, cell::RefCell, collections::BTreeMap, hash::{DefaultHasher, Hash, Hasher}
 };
 
 use crate::{circ::{Gate16, Instr32}, groups::permutation::Permut32, state::indices::qubit_matrix_indices2};

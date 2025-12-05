@@ -8,6 +8,7 @@ use rand::SeedableRng;
 fn main() {
     let nqubits = 5;
     let ngates = 6;
+    println!("Generating ECCs for {} qubits and {} gates. PRECISION_LEVEL={}", nqubits, ngates, quclif::Qreal::PERCISION_LEVEL);
     let evaluator1 = Evaluator::from_random(nqubits, &mut rand::rngs::StdRng::from_seed([1; 32]));
     let (ecc1, _) = RawECCs::generate(&evaluator1, vec![*H, *X, *TDG, *T, *CX], ngates);
     println!("{}", ecc1.len());

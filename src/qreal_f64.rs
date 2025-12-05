@@ -1,9 +1,7 @@
-use std::{hash::{DefaultHasher, Hash, Hasher}};
-use num_traits::{Num, One, Zero};
+use std::hash::{Hash, Hasher};
+use num_traits::Num;
 
-use nalgebra::{DMatrix};
-use num_complex::{Complex, Complex64};
-use rayon::option;
+use num_complex::Complex;
 
 use crate::utils::parse_usize;
 
@@ -154,7 +152,7 @@ impl num_traits::Num for Qreal {
 }
 
 impl Qreal {
-    const PERCISION_LEVEL : usize = parse_usize(if let Some(a) = option_env!("PERCISION_LEVEL") { a } else { "24" });
+    pub const PERCISION_LEVEL : usize = parse_usize(if let Some(a) = option_env!("PERCISION_LEVEL") { a } else { "24" });
     const PERCISION_EPSILON: Qreal = Qreal(1f64 / ((1u64 << Self::PERCISION_LEVEL) as f64));
     pub const FRAC_PI_4 : Self = Self(std::f64::consts::FRAC_PI_4);
     pub const FRAC_1_SQRT_2 : Self = Self(std::f64::consts::FRAC_1_SQRT_2);

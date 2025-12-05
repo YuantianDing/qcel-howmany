@@ -1,15 +1,15 @@
-use std::{cmp::Ordering, collections::{hash_map::Entry, BTreeSet, HashMap, VecDeque}, iter};
+use std::{cmp::Ordering, collections::{hash_map::Entry, BTreeSet, HashMap, VecDeque}};
 
-use derive_more::{Deref, Debug, Display};
+use derive_more::{Deref, Debug};
 use itertools::Itertools;
 use nohash_hasher::BuildNoHashHasher;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
-use rand::{SeedableRng, rngs::{StdRng, ThreadRng}};
-use smallvec::{smallvec, SmallVec};
+use rand::{SeedableRng, rngs::StdRng};
+use smallvec::SmallVec;
 
 
 use crate::{
-    circ::{Gate16, Instr32, Instruction, InstructionSliceExt, gates::SWAP}, groups::permutation::Permut32, search::ECC, state::{StateVec, order_info::OrderInfo}, utils::{AliasList, JoinOptionIter}
+    circ::{Gate16, Instr32}, groups::permutation::Permut32, search::ECC, state::StateVec, utils::{AliasList, JoinOptionIter}
 };
 use linear_map::set::LinearSet;
 
@@ -482,7 +482,7 @@ impl RawECCs {
     pub fn switch_evaluator(&self, new_evaluator: &Evaluator) -> RawECCs {
         let mut new_map = RawECCs::new(new_evaluator);
         for ecc in self.inner.values() {
-            let mut instrs = ecc.circuits[0].circ.iter().cloned().collect_vec();
+            let instrs = ecc.circuits[0].circ.iter().cloned().collect_vec();
             let (backstate, _, _, _) = new_evaluator.evaluate(&instrs);
             let hash = backstate.hash_value();
             let mut result = CircuitECC {
@@ -493,7 +493,7 @@ impl RawECCs {
             };
 
             for triple in ecc.circuits.iter() {
-                let mut instrs = triple.circ.iter().cloned().collect_vec();
+                let instrs = triple.circ.iter().cloned().collect_vec();
                 let (backstate, front_perm, back_perm, _) = new_evaluator.evaluate(&instrs);
                 assert!(backstate.hash_value() == hash, "Inconsistent ECC detected during evaluator switch");
 

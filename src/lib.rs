@@ -5,16 +5,16 @@
 #[cfg(not(feature = "f128"))]
 mod qreal_f64;
 #[cfg(not(feature = "f128"))]
-pub(crate) type Qreal = qreal_f64::Qreal;
+pub type Qreal = qreal_f64::Qreal;
 #[cfg(not(feature = "f128"))]
-pub(crate) type Qcplx = qreal_f64::Qcplx;
+pub type Qcplx = qreal_f64::Qcplx;
 
 #[cfg(feature = "f128")]
 mod qreal_f128;
 #[cfg(feature = "f128")]
-pub(crate) type Qreal = qreal_f128::Qreal;
+pub type Qreal = qreal_f128::Qreal;
 #[cfg(feature = "f128")]
-pub(crate) type Qcplx = qreal_f128::Qcplx;
+pub type Qcplx = qreal_f128::Qcplx;
 
 
 pub mod circ;

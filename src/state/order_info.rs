@@ -1,4 +1,4 @@
-use std::{fs::Permissions, sync::LazyLock};
+use std::sync::LazyLock;
 
 use pyo3::pyclass;
 

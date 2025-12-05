@@ -2,9 +2,8 @@ use std::collections::HashSet;
 
 use itertools::Itertools;
 use serde_json::{json, Value};
-use smallvec::smallvec;
 
-use crate::{circ::{gates::SWAP}, groups::permutation::Permut32, search::{ECCs, Instr32}, utils::JoinOptionIter};
+use crate::{circ::{gates::SWAP}, groups::permutation::Permut32, search::{ECCs, Instr32}};
 
 impl ECCs {
     pub fn as_quartz(&self) -> serde_json::Value {
