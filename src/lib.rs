@@ -1,17 +1,20 @@
 
 
-mod qreal_fixed64;
+#![cfg_attr(feature = "f128", feature(f128))]
+
+#[cfg(not(feature = "f128"))]
 mod qreal_f64;
-
-
-#[cfg(not(feature = "fixed64"))]
+#[cfg(not(feature = "f128"))]
 pub(crate) type Qreal = qreal_f64::Qreal;
-#[cfg(feature = "fixed64")]
-pub(crate) type Qreal = qreal_fixed64::Qreal;
-#[cfg(not(feature = "fixed64"))]
+#[cfg(not(feature = "f128"))]
 pub(crate) type Qcplx = qreal_f64::Qcplx;
-#[cfg(feature = "fixed64")]
-pub(crate) type Qcplx = qreal_f64::Qcplx;
+
+#[cfg(feature = "f128")]
+mod qreal_f128;
+#[cfg(feature = "f128")]
+pub(crate) type Qreal = qreal_f128::Qreal;
+#[cfg(feature = "f128")]
+pub(crate) type Qcplx = qreal_f128::Qcplx;
 
 
 pub mod circ;

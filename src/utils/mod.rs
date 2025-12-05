@@ -196,3 +196,14 @@ impl DenseIndexMap {
         }
     }
 }
+
+pub const fn parse_usize(s: &str) -> usize {
+    let mut out: usize = 0;
+    let mut i: usize = 0;
+    while i<s.len() {
+        out *= 10;
+        out += (s.as_bytes()[i] - b'0') as usize;
+        i += 1;
+    }
+    out
+}

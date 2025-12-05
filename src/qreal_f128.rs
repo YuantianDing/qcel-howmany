@@ -3,14 +3,25 @@ use num_traits::{Num, One, Zero};
 
 use nalgebra::{DMatrix};
 use num_complex::{Complex, Complex64};
-use rayon::option;
-
-use crate::utils::parse_usize;
 
 #[derive(Clone, Copy, derive_more::Debug, derive_more::Display, derive_more::From, derive_more::Into)]
 #[debug("{_0:?}")]
-#[display("{_0}")]
-pub struct Qreal(f64);
+#[display("{_0:.8?}")]
+pub struct Qreal(f128);
+
+impl From<f64> for Qreal {
+    #[inline(always)]
+    fn from(value: f64) -> Self {
+        Qreal(value as f128)
+    }
+}
+
+impl Into<f64> for Qreal {
+    #[inline(always)]
+    fn into(self) -> f64 {
+        self.0 as f64
+    }
+}
 
 impl PartialEq for Qreal {
     #[inline(always)]
@@ -149,25 +160,25 @@ impl num_traits::Num for Qreal {
 
     fn from_str_radix(str: &str, radix: u32) -> Result<Self, Self::FromStrRadixErr> {
         let val = f64::from_str_radix(str, radix)?;
-        Ok(Qreal(val))
+        Ok(Qreal(val as f128))
     }
 }
 
 impl Qreal {
     const PERCISION_LEVEL : usize = parse_usize(if let Some(a) = option_env!("PERCISION_LEVEL") { a } else { "24" });
-    const PERCISION_EPSILON: Qreal = Qreal(1f64 / ((1u64 << Self::PERCISION_LEVEL) as f64));
-    pub const FRAC_PI_4 : Self = Self(std::f64::consts::FRAC_PI_4);
-    pub const FRAC_1_SQRT_2 : Self = Self(std::f64::consts::FRAC_1_SQRT_2);
+    const PERCISION_EPSILON: Qreal = Qreal(1f128 / ((1u64 << Self::PERCISION_LEVEL) as f128));
+    pub const FRAC_PI_4 : Self = Self(std::f128::consts::FRAC_PI_4);
+    pub const FRAC_1_SQRT_2 : Self = Self(std::f128::consts::FRAC_1_SQRT_2);
 
     pub const IM_UNIT : Qcplx = Complex::new(Qreal(0.0), Qreal(1.0));
     pub const EXP_I_FRAC_PI_4 : Qcplx = Complex::new(Self::FRAC_1_SQRT_2, Self::FRAC_1_SQRT_2);
     #[inline(always)]
     pub fn frac(nom: i64, denom: i64) -> Qreal {
-        Qreal(nom as f64 / denom as f64)
+        Qreal(nom as f128 / denom as f128)
     }
     #[inline(always)]
-    pub fn percision_repr(self: Qreal) -> u64 {
-        (self.0 * ((1u64 << Self::PERCISION_LEVEL) as f64)).round() as i64 as u64
+    pub fn percision_repr(self: Qreal) -> u128 {
+        (self.0 * ((1u64 << Self::PERCISION_LEVEL) as f128)).round() as i128 as u128
     }
     #[inline(always)]
     pub fn near_zero(self: Qreal) -> bool {
@@ -179,7 +190,7 @@ impl Qreal {
     }
     #[inline(always)]
     pub fn expipi(self) -> Qcplx {
-        let angle = self.0 * std::f64::consts::PI;
+        let angle = self.0 * std::f128::consts::PI;
         Qcplx::new(Qreal(angle.cos()), Qreal(angle.sin()))
     }
 }
@@ -187,7 +198,7 @@ pub type Qcplx = Complex<Qreal>;
 
 impl<'py> pyo3::IntoPyObject<'py> for Qreal {
     fn into_pyobject(self, py: pyo3::Python<'py>) -> Result<Self::Output, Self::Error> {
-        self.0.into_pyobject(py)
+        (self.0 as f64).into_pyobject(py)
     }
     
     type Target = <f64 as pyo3::IntoPyObject<'py>>::Target;
@@ -200,7 +211,7 @@ impl<'py> pyo3::IntoPyObject<'py> for Qreal {
 impl<'py> pyo3::FromPyObject<'py> for Qreal {
     fn extract_bound(ob: &pyo3::Bound<'py, pyo3::PyAny>) -> Result<Self, pyo3::PyErr> {
         let val: f64 = pyo3::FromPyObject::extract_bound(ob)?;
-        Ok(Qreal(val))
+        Ok(Qreal(val as f128))
     }
 }
 
