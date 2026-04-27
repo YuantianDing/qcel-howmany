@@ -16,17 +16,23 @@ def retrieve_data():
     for gate_set_name, (gate_count, prove_gate_count, naive_gate_count) in NGATES.items():
         data[gate_set_name] = {i: {} for i in range(1, prove_gate_count + 1)}
         for ngates in range(1, prove_gate_count + 1):
-            data[gate_set_name][ngates]['eccset'] = load(f".cache/eccset-{gate_set_name.replace("/","::")}-{ngates}-5.eccs.json")
+            gateset = gate_set_name.replace("/","::")
+            data[gate_set_name][ngates]['eccset'] = load(f".cache/eccset-{gateset}-{ngates}-5.eccs.json")
         for ngates in range(1, gate_count + 1):
-            data[gate_set_name][ngates]['prove'] = load(f".cache/prover-{gate_set_name.replace("/","::")}-{ngates}-5.prover.json")
+            gateset = gate_set_name.replace("/","::")
+            data[gate_set_name][ngates]['prove'] = load(f".cache/prover-{gateset}-{ngates}-5.prover.json")
         for ngates in range(gate_count + 1, prove_gate_count + 1):
-            data[gate_set_name][ngates]['prove'] = load(f".cache/prove-{gate_set_name.replace("/","::")}-{ngates}-5.json")
+            gateset = gate_set_name.replace("/","::")
+            data[gate_set_name][ngates]['prove'] = load(f".cache/prove-{gateset}-{ngates}-5.json")
         for ngates in range(1, naive_gate_count + 1):
-            data[gate_set_name][ngates]['eccset-naive'] = load(f".cache/eccset-{gate_set_name.replace("/","::")}-{ngates}-5-naive.eccs.json")
+            gateset = gate_set_name.replace("/","::")
+            data[gate_set_name][ngates]['eccset-naive'] = load(f".cache/eccset-{gateset}-{ngates}-5-naive.eccs.json")
         for ngates in range(1, naive_gate_count + 1):
-            data[gate_set_name][ngates]['prove-naive'] = load(f".cache/prove-{gate_set_name.replace("/","::")}-{ngates}-5-naive.json")
+            gateset = gate_set_name.replace("/","::")
+            data[gate_set_name][ngates]['prove-naive'] = load(f".cache/prove-{gateset}-{ngates}-5-naive.json")
         for ngates in range(1, naive_gate_count + 1):
-            data[gate_set_name][ngates]['prover-naive'] = load(f".cache/prover-{gate_set_name.replace("/","::")}-{ngates}-5-naive.prover.json")
+            gateset = gate_set_name.replace("/","::")
+            data[gate_set_name][ngates]['prover-naive'] = load(f".cache/prover-{gateset}-{ngates}-5-naive.prover.json")
     return data
 
 def get_dataframe(f):

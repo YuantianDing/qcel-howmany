@@ -10,7 +10,8 @@ from generate_eccs import generate_eccs
 
 
 def prove(prover: qcel_howmany.IdentityProver, gate_set: str, ngates: int, nqubits: int = 5, naive=False) -> dict:
-    name = f".cache/prove-{gate_set.replace("/", "::")}-{ngates}-{nqubits}{'-naive' if naive else ''}.json"
+    gate_set_name = gate_set.replace("/", "::")
+    name = f".cache/prove-{gate_set_name}-{ngates}-{nqubits}{'-naive' if naive else ''}.json"
     if os.path.exists(name):
         with open(name) as f:
             result = json.load(f)
@@ -21,7 +22,7 @@ def prove(prover: qcel_howmany.IdentityProver, gate_set: str, ngates: int, nqubi
     start = time.time_ns()
     rules = []
     print(f"Proving identities... (gate set '{gate_set}' with {ngates} gates.)")
-    for idcirc in tqdm(eccs.to_identity_circuits()):
+    for idcirc, _, _ in tqdm(eccs.to_identity_circuits()):
         if idcirc := prover.prove_identity(idcirc, 2, 50000):
             print(idcirc)
             rules.append(idcirc)

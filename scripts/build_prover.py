@@ -5,20 +5,20 @@ from qiskit import quantum_info as qi
 import sys
 import qcel_howmany
 from tqdm import tqdm
-from permuta import Perm
 import qiskit
 from qiskit.circuit import library as qlib
 
 from generate_eccs import generate_eccs
 
 def build_prover(gate_set: str, ngates: int, nqubits: int = 5, naive=False) -> tuple[qcel_howmany.IdentityProver, dict]:
-    name = f".cache/prover-{gate_set.replace("/", "::")}-{ngates}-{nqubits}{"-naive" if naive else ""}.prover"
-    # if os.path.exists(name) and os.path.exists(name + ".json"):
-    #     print(f"Loading prover for gate set '{gate_set}' with {ngates} gates.")
-    #     prover = qcel_howmany.IdentityProver.from_postcard(name)
-    #     with open(name + ".json") as f:
-    #         metadata = json.load(f)
-    #     return prover, metadata
+    gate_set_name = gate_set.replace("/", "::")
+    name = f".cache/prover-{gate_set_name}-{ngates}-{nqubits}{'-naive' if naive else ''}.prover"
+    if os.path.exists(name) and os.path.exists(name + ".json"):
+        print(f"Loading prover for gate set '{gate_set}' with {ngates} gates.")
+        prover = qcel_howmany.IdentityProver.from_postcard(name)
+        with open(name + ".json") as f:
+            metadata = json.load(f)
+        return prover, metadata
     
     print(f"Building prover for gate set '{gate_set}' with {ngates} gates.")
     eccs, _ = generate_eccs(gate_set, ngates, nqubits, naive=naive)

@@ -11,7 +11,8 @@ import qcel_howmany
 from gate_set import GATE_SETS
 
 def generate_eccs(gate_set: str, ngates: int, nqubits: int = 5, naive=False) -> tuple[qcel_howmany.ECCs, dict]:
-    name = f".cache/eccset-{gate_set.replace("/", "::")}-{ngates}-{nqubits}{'-naive' if naive else ''}.eccs"
+    gate_set_name = gate_set.replace("/", "::")
+    name = f".cache/eccset-{gate_set_name}-{ngates}-{nqubits}{'-naive' if naive else ''}.eccs"
     if os.path.exists(name) and os.path.exists(name + ".json"):
         ecc_set = qcel_howmany.ECCs.from_postcard(name)
         with open(name + ".json") as f:
