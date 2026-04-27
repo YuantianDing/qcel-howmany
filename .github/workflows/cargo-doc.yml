@@ -46,7 +46,7 @@ jobs:
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build documentation
-        run: cargo doc --no-deps --all-features
+        run: cargo doc --no-deps
         env:
           RUSTDOCFLAGS: "-D warnings"
 
