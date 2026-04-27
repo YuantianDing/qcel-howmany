@@ -176,34 +176,34 @@ pub fn initial_gates() -> Vec<GateData> {
         ),
         GateData::new(
             "rz".to_string(),
-            vec!["theta1".into()],
+            vec!["pi/5".into()],
             DMatrix::from_row_slice(2, 2, &[
                 Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
-                Qcplx::new(0.0.into(), 0.0.into()), theta1.expipi(),
+                Qcplx::new(0.0.into(), 0.0.into()), Qreal::frac(1, 5).expipi(),
             ])
         ),
         GateData::new(
             "rz".to_string(),
-            vec!["-theta1".into()],
+            vec!["-pi/5".into()],
             DMatrix::from_row_slice(2, 2, &[
                 Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
-                Qcplx::new(0.0.into(), 0.0.into()), theta1.expipi().conj(),
+                Qcplx::new(0.0.into(), 0.0.into()), Qreal::frac(1, 5).expipi().conj(),
             ])
         ),
         GateData::new(
             "rz".to_string(),
-            vec!["theta2".into()],
+            vec!["pi/16".into()],
             DMatrix::from_row_slice(2, 2, &[
                 Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
-                Qcplx::new(0.0.into(), 0.0.into()), theta2.expipi(),
+                Qcplx::new(0.0.into(), 0.0.into()), Qreal::frac(1, 16).expipi(),
             ])
         ),
         GateData::new(
             "rz".to_string(),
-            vec!["-theta2".into()],
+            vec!["-pi/16".into()],
             DMatrix::from_row_slice(2, 2, &[
                 Qcplx::new(1.0.into(), 0.0.into()), Qcplx::new(0.0.into(), 0.0.into()),
-                Qcplx::new(0.0.into(), 0.0.into()), theta2.expipi().conj(),
+                Qcplx::new(0.0.into(), 0.0.into()), Qreal::frac(1, 16).expipi().conj(),
             ])
         ),
 
@@ -230,10 +230,10 @@ pub static CY: LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("cy").unwra
 pub static SWAP : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("swap").unwrap());
 pub static RZ_FRAC_PI_3 : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("rz(pi/3)").unwrap());
 pub static RZ_NEG_FRAC_PI_3 : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("rz(-pi/3)").unwrap());
-pub static RZ_THETA_1 : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("rz(theta1)").unwrap());
-pub static RZ_NEG_THETA_1 : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("rz(-theta1)").unwrap());
-pub static RZ_THETA_2 : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("rz(theta2)").unwrap());
-pub static RZ_NEG_THETA_2 : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("rz(-theta2)").unwrap());
+// pub static RZ_THETA_1 : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("rz(theta1)").unwrap());
+// pub static RZ_NEG_THETA_1 : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("rz(-theta1)").unwrap());
+// pub static RZ_THETA_2 : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("rz(theta2)").unwrap());
+// pub static RZ_NEG_THETA_2 : LazyLock<Gate16> = LazyLock::new(|| Gate16::from_name("rz(-theta2)").unwrap());
 
 
 pub fn i() -> Instr32 { I.instr([]) }

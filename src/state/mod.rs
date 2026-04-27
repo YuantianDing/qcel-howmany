@@ -14,6 +14,7 @@ pub mod order_info;
 #[gen_stub_pyclass]
 #[pyo3::pyclass(eq, str)]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Complex state vector used for randomized circuit evaluation.
 pub struct StateVec {
     pub re: Box<[Qreal]>,
     pub im: Box<[Qreal]>,
@@ -309,6 +310,7 @@ pub fn reserve_state_vec_cache(size: usize) {
 #[pyo3::pymethods]
 impl StateVec {
     #[new]
+    /// Creates a state vector from real/imaginary coefficient arrays.
     pub fn new_py(re: Vec<f64>, im: Vec<f64>) -> Self {
         Self::new(
             re.into_iter().map(|a| Qreal::from(a)).collect(), 
@@ -316,6 +318,7 @@ impl StateVec {
         )
     }
 
+    /// Hashes the current normalized state.
     pub fn hash_value(&self) -> u64 {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         self.hash(&mut hasher);
@@ -323,18 +326,22 @@ impl StateVec {
     }
 
     #[staticmethod]
+    /// Creates a random normalized state.
     pub fn random(num_qubits: u32) -> Self {
         Self::from_random(&mut StdRng::from_os_rng(), num_qubits)
     }
     
     #[staticmethod]
+    /// Creates a random state tailored for symmetry-aware evaluator use.
     pub fn random_symmetric(num_qubits: u32) -> Self {
         Self::from_random_symmetric(&mut StdRng::from_os_rng(), num_qubits)
     }
 
+    /// Returns qubit count.
     pub fn nqubits(&self) -> usize {
         self.re.len().trailing_zeros() as usize
     }
+    /// Returns vector length (`2^nqubits`).
     pub fn len(&self) -> usize {
         self.re.len()
     }
@@ -368,6 +375,7 @@ impl StateVec {
         }
         self.normalize_arg();
     }
+    /// Canonicalizes global phase for stable equality/hash comparison.
     pub fn normalize_arg(&mut self) {
         let mut unit = Qcplx::new(self.re[0], self.im[0]);
         if unit.re.near_zero() && unit.im.near_zero() {
@@ -386,27 +394,32 @@ impl StateVec {
         self.im[0] = 0.0.into();
     }
 
+    /// Returns one amplitude as Python `complex`.
     pub fn __getitem__<'a>(&self, index: usize) -> Complex64 {
         let v = self.at(index);
         num_complex::c64(v.re, v.im)
     }
 
+    /// Sets one amplitude from Python `complex`.
     pub fn __setitem__(&mut self, index: usize, value: Complex64) {
         self.set(index, num_complex::Complex::new(
             Qreal::from(value.re), 
             Qreal::from(value.im)));
     }
 
+    /// In-place application of one instruction.
     pub fn __imul__(slf: &Bound<'_, Self>, other: Instr32) {
         let mut slf = slf.borrow_mut();
         slf.apply(&other.1, other.0);
     }
+    /// Returns a deep copy.
     pub fn clone(&self) -> Self {
         Self {
             re: self.re.clone(),
             im: self.im.clone(),
         }
     }
+    /// Checks unit-norm invariant.
     pub fn check(&self) -> bool {
         let mut norm_sq = Qreal::from(0.0);
         for i in 0..self.len() {

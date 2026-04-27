@@ -3,13 +3,13 @@
 import json
 import os
 import time
-import quclif
+import qcel_howmany
 from tqdm import tqdm
 
 from generate_eccs import generate_eccs
 
 
-def prove(prover: quclif.IdentityProver, gate_set: str, ngates: int, nqubits: int = 5, naive=False) -> dict:
+def prove(prover: qcel_howmany.IdentityProver, gate_set: str, ngates: int, nqubits: int = 5, naive=False) -> dict:
     name = f".cache/prove-{gate_set.replace("/", "::")}-{ngates}-{nqubits}{'-naive' if naive else ''}.json"
     if os.path.exists(name):
         with open(name) as f:

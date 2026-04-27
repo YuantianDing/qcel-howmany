@@ -1,3 +1,9 @@
+//! Symmetry-aware ECC search.
+//!
+//! This module builds raw equivalence classes of circuits (ECCs) by hashing
+//! evaluated states and tracking representative circuits with front/back
+//! permutations.
+
 use std::{cell::Cell, cmp::Ordering, collections::{BTreeSet, HashMap, VecDeque, hash_map::Entry}};
 
 use derive_more::{Deref, Debug};
@@ -18,6 +24,9 @@ use linear_map::{LinearMap, set::LinearSet};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[debug("{} {} {}", self.front_perm, self.circ.clone().collect_vec().iter().rev().fjoin(" "), self.back_perm)]
+/// A circuit stored with canonicalization permutations on both ends.
+///
+/// `circ` is kept in reverse (linked-list style) for efficient BFS extension.
 pub struct CircTriple{
     pub front_perm: Permut32,
     pub circ: AliasList<Instr32>,
@@ -25,6 +34,8 @@ pub struct CircTriple{
 }
 
 impl CircTriple {
+    /// Converts the internal reverse representation into forward instruction order,
+    /// and combines front/back permutations into one output permutation.
     pub fn simplify(&self) -> (Vec<Instr32>, Permut32) {
         let front_perm_inv = self.front_perm.inv();
         let mut instrs = self.circ.iter().map(|a| a.apply_permutation(front_perm_inv)).collect::<Vec<_>>();
@@ -43,6 +54,7 @@ impl std::fmt::Display for CircTriple {
 
 #[derive(Debug, derive_more::Display, Clone, PartialEq, Eq)]
 #[display("CircuitECC {{{}}}", self.circuits.iter().fjoin(", "))]
+/// Raw equivalence class bucket keyed by evaluated state hash.
 pub struct CircuitECC {
     pub size: usize,
     pub front_gates: LinearSet<Instr32>,
@@ -51,6 +63,7 @@ pub struct CircuitECC {
 }
 
 impl CircuitECC {
+    /// Creates the root ECC containing only the empty circuit.
     pub fn root(nqubits: usize) -> CircuitECC {
         CircuitECC {
             size: 0,
@@ -66,6 +79,7 @@ impl CircuitECC {
         }
     }
 
+    /// Converts this raw bucket to a normalized public [`ECC`] representation.
     pub fn simplify(&self) -> super::ECC {
         let mut result = self.circuits.iter().map(|triple| triple.simplify()).collect_vec();
         result.sort_by(|a, b| (a.0.len(), a).cmp(&(b.0.len(), b)));
@@ -78,6 +92,7 @@ impl CircuitECC {
         )).collect_vec().into()
     }
 
+    /// Checks whether a candidate's front/back surface gates are new for this bucket.
     pub fn test_filter(&self, front_perm: Permut32, instr_vec: &[Instr32], back_perm: Permut32) -> bool {
         let front_gates_iter = circuit_get_surface_gates(instr_vec.iter())
             .map(|instr| instr.apply_permutation(front_perm.inv()));
@@ -89,6 +104,7 @@ impl CircuitECC {
         front_unique && back_unique
     }
 
+    /// Produces a concrete pair of equivalent circuits for diagnostics/export.
     pub fn export_equivalence(&self, front_perm: Permut32, instr_vec: &[Instr32], back_perm: Permut32) -> (Vec<Instr32>, Permut32, Vec<Instr32>, Permut32) {
         let instrs20 = instr_vec.iter().map(|a| a.apply_permutation(front_perm.inv())).collect::<Vec<_>>();
         let perm2 = back_perm * front_perm;
@@ -118,12 +134,14 @@ impl CircuitECC {
 #[gen_stub_pyclass]
 #[pyo3::pyclass(eq)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// Randomized evaluator used to hash circuits and recover permutation metadata.
 pub struct Evaluator {
     pub initial_state: StateVec,
     pub backtrack_state: StateVec,
 }
 
 impl Evaluator {
+    /// Builds a deterministic evaluator from a seeded RNG.
     pub fn from_random(nqubits: usize, rng: &mut StdRng) -> Self {
         let initial_state = StateVec::from_random_symmetric(rng, nqubits as u32);
 
@@ -157,11 +175,18 @@ impl Evaluator {
 
     //     (state, backstate, front_perm, back_perm, eq_mask & mask)
     // }
+    /// Evaluates one circuit and returns:
+    /// - canonical backtracked state,
+    /// - front permutation,
+    /// - back permutation,
+    /// - forward-evolved state.
     pub fn evaluate(&self, instrs: &[Instr32]) -> (StateVec, Permut32, Permut32, StateVec) {
         let (backstate, vec, oi) = self.evaluate_multiple(instrs);
 
         (backstate, vec[0].0, vec[0].1, oi)
     }
+    /// Evaluates one circuit and returns all equivalent `(front_perm, back_perm)` pairs
+    /// that map to the same minimal backtracked state.
     pub fn evaluate_multiple(&self, instrs: &[Instr32]) -> (StateVec, SmallVec<[(Permut32, Permut32); 1]>, StateVec) {
         let mut state = self.initial_state.clone();
         // let mut mask = 0u8;
@@ -213,18 +238,22 @@ impl Evaluator {
 #[pyo3::pymethods]
 impl Evaluator {
     #[new]
+    /// Creates a random evaluator for `nqubits`.
     fn random_py(nqubits: usize) -> Self {
         Self::from_random(nqubits, &mut rand::rngs::StdRng::from_os_rng())
     }
+    /// Returns evaluator qubit count.
     pub fn nqubits(&self) -> usize {
         self.initial_state.nqubits()
     }
 
     #[pyo3(name="evaluate")]
+    /// Python wrapper for circuit evaluation.
     pub fn evaluate_py(&self, instrs: Vec<Instr32>) -> (StateVec, Permut32, Permut32, StateVec) {
         self.evaluate(&instrs)
     }
 
+    /// Hash key for the empty circuit under this evaluator.
     fn initial_key(&self) -> u64 {
         self.evaluate(&[]).0.hash_value()
     }
@@ -233,6 +262,9 @@ impl Evaluator {
 #[gen_stub_pyclass]
 #[pyo3::pyclass(name="RawECCs")]
 #[derive(Clone, Deref)]
+/// Mutable ECC map keyed by evaluator hash.
+///
+/// This is the direct output of the search algorithm before final simplification.
 pub struct RawECCs {
     #[deref]
     inner: HashMap<u64, CircuitECC, BuildNoHashHasher<u64>>,
@@ -334,6 +366,7 @@ impl RawECCs {
             }
         }
     }
+    /// Finds all known circuits equivalent to `instrs` under the given evaluator.
     pub fn find_equivalents(&self, evaluator: &Evaluator, instrs: &[Instr32]) -> Option<ECC> {
         let (backstate, front_perm, back_perm, _) = evaluator.evaluate(instrs);
 
@@ -349,6 +382,9 @@ impl RawECCs {
                 .collect_vec())
         }).and_then(|ecc| if ecc.0.is_empty() { None } else { Some(ecc) })
     }
+    /// Rewrites a circuit recursively to the canonical representative within this ECC map.
+    ///
+    /// Used as an internal consistency check when comparing two search strategies.
     pub fn checked_equivalent(&self, instrs: &[Instr32], perm: Permut32, evaluator: &Evaluator) -> (Vec<Instr32>, Permut32) {
         let mut vec = Vec::<Instr32>::new();
         let mut permut = perm;
@@ -395,6 +431,7 @@ impl RawECCs {
 #[gen_stub_pymethods]
 #[pyo3::pymethods]
 impl RawECCs {
+    /// Initializes the raw map with the empty circuit class.
     #[new]
     pub fn new(evaluator: &Evaluator) -> Self {
         let mut map = RawECCs {
@@ -405,6 +442,7 @@ impl RawECCs {
         map.inner.insert(evaluator.evaluate(&[]).0.hash_value(), CircuitECC::root(evaluator.nqubits()));
         map
     }
+    /// Exhaustive baseline search without permutation-based multiplicity reduction.
     #[staticmethod]
     fn search_naive(evaluator: &Evaluator, instrs: Vec<Instr32>, max_size: usize) -> (RawECCs, [usize; 3]) {
         let mut map = RawECCs::new(evaluator);
@@ -448,6 +486,7 @@ impl RawECCs {
         map.drop = true;
         (map, counters)
     }
+    /// Optimized search using permutation-equivalent placements per circuit.
     #[staticmethod]
     fn search(evaluator: &Evaluator, instrs: Vec<Instr32>, max_size: usize) -> (RawECCs, [usize; 3]) {
         let mut map = RawECCs::new(evaluator);
@@ -489,6 +528,7 @@ impl RawECCs {
         (map, counters)
     }
 
+    /// Converts raw buckets into sorted, normalized ECCs.
     pub fn simplify(&self) -> super::ECCs {
         let mut eccs: Vec<_> = self.inner.values().map(|a| a.simplify()).collect();
         eccs.sort();
@@ -497,6 +537,9 @@ impl RawECCs {
             nqubits: self.nqubits,
         }
     }
+    /// Generates ECCs from a gate set using the optimized search.
+    ///
+    /// Adjoint gates are added automatically if missing.
     #[staticmethod]
     pub fn generate(
         evaluator: &Evaluator,
@@ -531,6 +574,7 @@ impl RawECCs {
         instructions.sort_by_key(|a| a.largest_qubit());
         RawECCs::search(&evaluator, instructions, max_size)
     }
+    /// Generates ECCs from a gate set using the naive search.
     #[staticmethod]
     pub fn generate_naive(
         evaluator: &Evaluator,
@@ -566,10 +610,14 @@ impl RawECCs {
     }
 
     #[pyo3(name="find_equivalents")]
+    /// Python wrapper returning equivalent circuits for a candidate program.
     fn find_equivalents_py(&self, evaluator: &Evaluator, instrs: Vec<Instr32>) -> Option<ECC> {
         self.find_equivalents(evaluator, &instrs)
     }
 
+    /// Computes the next reachable ECC hash after appending one instruction.
+    ///
+    /// Returns `None` when the resulting state was not discovered in this map.
     pub fn compute_next_key(&self, evaluator: &Evaluator, current_key: u64, instr: Instr32) -> Option<u64> {
         self.inner.get(&current_key).and_then(|ecc| {
             let triple = ecc.circuits.first().unwrap();
@@ -583,6 +631,9 @@ impl RawECCs {
         })
     }
 
+    /// Re-evaluates all stored circuits under a new evaluator.
+    ///
+    /// Useful for cross-checking evaluator-independence of discovered classes.
     pub fn switch_evaluator(&self, new_evaluator: &Evaluator) -> RawECCs {
         let mut new_map = RawECCs::new(new_evaluator);
         for ecc in self.inner.values() {
@@ -612,6 +663,7 @@ impl RawECCs {
         new_map
     }
 
+    /// Checks that every identity in `self` is representable in `ecc1`.
     pub fn check_identity_subset(&self, ecc1: &RawECCs, evaluator: &Evaluator) {
         for chunk in &self.values().chunks(4096) {
             chunk.collect_vec().par_iter().for_each(|ecc| {

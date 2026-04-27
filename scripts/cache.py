@@ -1,4 +1,4 @@
-import quclif
+import qcel_howmany
 import hashlib
 import json
 import pathlib
@@ -16,7 +16,7 @@ def hash_dict_no_order(dictionary):
 def dump_data(data):
     # if isinstance(data, BaseModel):
     #     return data.model_dump()
-    if isinstance(data, quclif.IdentityCirc):
+    if isinstance(data, qcel_howmany.IdentityCirc):
         return data.pythonize()
     elif type(data) == list:
         return [dump_data(item) for item in data]
@@ -40,8 +40,8 @@ def dump_data(data):
 def load_data(data, returnty):
     # if issubclass(returnty, BaseModel):
     #     return returnty.model_validate(data)
-    if get_origin(returnty) == quclif.IdentityCirc:
-        return quclif.IdentityCirc.from_python(data)
+    if get_origin(returnty) == qcel_howmany.IdentityCirc:
+        return qcel_howmany.IdentityCirc.from_python(data)
     elif get_origin(returnty) == list:
         return [load_data(item, get_args(returnty)[0]) for item in data]
     elif get_origin(returnty) == dict:

@@ -1,3 +1,5 @@
+//! Core circuit-level data structures shared by Rust and Python APIs.
+
 use std::hash::Hasher;
 
 use derive_more::{Debug, Display};
@@ -16,6 +18,7 @@ pub mod param;
 #[pyo3::pyclass(eq, str)]
 #[derive(Debug, Clone, Display, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display("{regid}[{index}]")]
+/// A named register argument (e.g., `q[0]`, `c[2]`) used by high-level instructions.
 pub struct Argument {
     #[pyo3(get, set)]
     pub regid: String,
@@ -27,6 +30,7 @@ pub struct Argument {
 #[pyo3::pymethods]
 impl Argument {
     #[new]
+    /// Creates a register argument like `("q", 0)`.
     pub fn new(regid: String, index: usize) -> Self {
         Self { regid, index }
     }
@@ -44,6 +48,7 @@ pub mod qargs;
 #[gen_stub_pyclass]
 #[pyo3::pyclass(eq, str)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// A high-level instruction with gate + explicit quantum/classical register arguments.
 pub struct Instruction {
     #[pyo3(get, set)]
     pub gate: Gate16,
@@ -68,6 +73,7 @@ impl std::fmt::Display for Instruction {
 impl Instruction {
     #[new]
     #[pyo3(signature = (gate, qargs, cargs = Vec::new()))]
+    /// Creates a high-level instruction with explicit quantum/classical arguments.
     pub fn new(
         gate: Gate16,
         qargs: Vec<Either<Argument, (String, usize)>>,
@@ -155,6 +161,7 @@ impl Instruction {
 #[debug("{}({})", self.0, self.1.iter().fjoin(", "))]
 #[display("{}({})", self.0, self.1.iter().fjoin(", "))]
 #[pyo3(name = "Instr")]
+/// A compact, index-only quantum instruction used internally by the search/prover.
 pub struct Instr32(pub Gate16, pub qargs::QArgs16);
 
 
@@ -183,6 +190,7 @@ impl Instr32 {
 #[pyo3::pymethods]
 impl Instr32 {
     #[new]
+    /// Creates a compact instruction from a gate and integer qubit arguments.
     pub fn new(gate: Gate16, qargs: Vec<u8>) -> Self {
         assert!(
             qargs.len() == gate.nqargs(),
@@ -192,19 +200,24 @@ impl Instr32 {
         Instr32(gate, qargs.into_iter().collect())
     }
     #[getter]
+    /// Underlying gate.
     pub fn gate(&self) -> Gate16 {
         self.0
     }
     #[getter]
+    /// Qubit arguments as dense integer indices.
     pub fn qargs(&self) -> Vec<u8> {
         self.1.iter().cloned().collect()
     }
+    /// Applies a qubit permutation.
     pub fn apply_permutation(&self, perm: Permut32) -> Self {
         Instr32(self.0, self.1.iter().map(|&qubit| perm.at(qubit)).collect())
     }
+    /// Bitmask of qubits touched by this instruction.
     pub fn arg_mask(&self) -> u8 {
         self.1.iter().fold(0, |acc, &q| acc | (1 << q))
     }
+    /// Updates a frontier mask for left-to-right scheduling checks.
     pub fn pass_mask(&self, mut mask: u8) -> Option<u8> {
         for &q in self.1.iter() {
             if (mask >> q) & 1 != 0 {
@@ -217,15 +230,19 @@ impl Instr32 {
         }
         Some(mask)
     }
+    /// Largest qubit index touched by this instruction.
     pub fn largest_qubit(&self) -> u8 {
         *self.1.iter().max().unwrap_or(&0)
     }
+    /// Alias of `apply_permutation`.
     pub fn permut(&self, perm: Permut32) -> Self {
         Instr32(self.0, self.1.iter().map(|&q| perm.at(q)).collect())
     }
+    /// Returns `true` when this and `other` touch disjoint qubits.
     pub fn disjoint(&self, other: &Instr32) -> bool {
         self.arg_mask() & other.arg_mask() == 0
     }
+    /// Returns the adjoint instruction.
     pub fn adjoint(&self) -> Self {
         Instr32(self.0.adjoint(), self.1.clone())
     }
@@ -241,6 +258,7 @@ impl Instr32 {
         self.hash(&mut hasher);
         hasher.finish()
     }
+    /// Returns position of `qubit` in argument list, if present.
     pub fn position_of_qubit(&self, qubit: u8) -> Option<usize> {
         self.1.iter().position(|&q| q == qubit)
     }
@@ -256,4 +274,3 @@ macro_rules! instr_vec {
         ]
     };
 }
-

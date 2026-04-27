@@ -1291,7 +1291,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "quclif"
+name = "qcel_howmany"
 version = "0.1.0"
 dependencies = [
  "alias-ptr",

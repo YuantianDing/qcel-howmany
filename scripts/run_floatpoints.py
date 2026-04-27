@@ -7,7 +7,7 @@ import pandas as pd
 
 
 def run_synthesis(percision_level = 24, f128 = False):
-    commands = ["cargo", "run", "--release", "--bin", "run_synthesis"]
+    commands = ["cargo", "run", "--release", "--bin", "run_synthesis_fp"]
 
     if f128:
         commands.append("-Ff128")

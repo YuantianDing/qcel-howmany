@@ -1,4 +1,6 @@
 
+//! Identity proving engine built from enumerated equivalence classes (ECCs).
+
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use itertools::Itertools;
@@ -11,6 +13,12 @@ use crate::{identity::{circuit::Circ, eccprove::proof::{Proof, ProofTracker}, id
 #[gen_stub_pyclass]
 #[pyo3::pyclass]
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+/// Rule-based prover for circuit identities.
+///
+/// The prover is built from ECCs, extracts assumed rules, and can then:
+/// - check whether a target identity is derivable,
+/// - produce visited states for diagnostics,
+/// - export explicit proof traces.
 pub struct IdentityProver {
     assume: Vec<IdentityCirc>,
     proved: HashMap<IdentityCirc, ()>,
@@ -18,6 +26,8 @@ pub struct IdentityProver {
 }
 
 impl IdentityProver {
+    /// Builds a prover from simplified ECCs by extracting candidate identities
+    /// and retaining only assumptions that cannot be derived from earlier ones.
     pub fn build(
         eccs: &[ECC],
     ) -> Self {
@@ -51,7 +61,7 @@ impl IdentityProver {
         identities.dedup();
         eprintln!("Proving Identities");
         for id in identities.into_iter().progress() {
-            prover.add_identity(id, 3, 50000);
+            prover.add_identity(id, 3, 50000000);
         }
         
         // eprintln!("Removing redundant assumptions");
@@ -62,9 +72,11 @@ impl IdentityProver {
 
         prover
     }
+    /// Consumes the prover and returns the final assumption set.
     pub fn into_assumed_identities(self) -> Vec<IdentityCirc> {
         self.assume
     }
+    /// Returns the assumption set used as base rules.
     pub fn assumed_identities(&self) -> &Vec<IdentityCirc> {
         &self.assume
     }
@@ -86,12 +98,14 @@ impl IdentityProver {
                     prover.circ_map.entry(c1_rep).or_default().push(c2_permuted.inverse());
                 });
             }
-            if prover.prove_identity(self.assume[id].clone(), 11, 50000).is_none() {
+            if prover.prove_identity(self.assume[id].clone(), 11, 500000).is_none() {
                 return Some(id);
             }
         }
         return None;
     }
+    /// Enumerates parallel transition pairs `(new_identity, prerequisite_identity)`
+    /// reachable by one rule application.
     pub fn par_transition_pairs<'a>(
         self: &IdentityProver,
         identity: &'a IdentityCirc,
@@ -119,12 +133,14 @@ impl IdentityProver {
 #[pyo3::pymethods]
 impl IdentityProver {
     #[staticmethod]
+    /// Python entrypoint: builds a prover from generated ECCs.
     pub fn build_from_eccs(
         eccs: ECCs,
     ) -> Self {
         Self::build(eccs.as_slice())
     }
 
+    /// Applies one round of parallel rule rewriting bounded by `additional_size`.
     pub fn par_apply_rules<'a>(
         &'a self,
         identity: &'a IdentityCirc,
@@ -148,6 +164,9 @@ impl IdentityProver {
         }).collect()
     }
 
+    /// Inserts one identity into the prover, deriving it when possible.
+    ///
+    /// Returns `true` when this identity must be kept as an assumption.
     fn add_identity(&mut self, identity: IdentityCirc, additional_size: usize, count_limit: usize) -> bool {
         if identity.is_empty() || self.proved.contains_key(&identity) {
             return false;
@@ -162,6 +181,10 @@ impl IdentityProver {
         result
     }
     
+    /// Internal bounded search used by [`Self::add_identity`].
+    ///
+    /// Returns `(visited, assumed)` where `assumed=true` means the identity
+    /// could not be derived within `count_limit`.
     fn add_identity_search(&mut self, identity: IdentityCirc, additional_size: usize, count_limit: usize) -> (HashSet<IdentityCirc>, bool) {
         let mut search_queue = vec![VecDeque::<IdentityCirc>::new(); additional_size + 1];
         let mut visited = HashSet::new();
@@ -200,11 +223,15 @@ impl IdentityProver {
         return (visited, true);
     }
 
+    /// Attempts to prove one identity.
+    ///
+    /// Returns `None` if proved, or `Some(identity)` if the search exceeded limits.
     pub fn prove_identity(&self, identity: IdentityCirc, additional_size: usize, count_limit: usize) -> Option<IdentityCirc> {
         let (result, _) = self.prove_identity_with_visited(identity, additional_size, count_limit);
         result
     }
 
+    /// Same as [`Self::prove_identity`] but also returns visited identities.
     pub fn prove_identity_with_visited(&self, identity: IdentityCirc, additional_size: usize, count_limit: usize) -> (Option<IdentityCirc>, HashSet<IdentityCirc>) {
         let mut search_queue = vec![VecDeque::<IdentityCirc>::new(); additional_size + 1];
         let mut visited = HashSet::new();
@@ -242,6 +269,7 @@ impl IdentityProver {
         (Some(identity), visited)
     }
 
+    /// Exports a proof DAG when `identity` is derivable under the given limits.
     pub fn export_proof(&self, identity: IdentityCirc, additional_size: usize, count_limit: usize) -> Option<Proof> {
         let (result, visited) = self.prove_identity_with_visited(identity.clone(), additional_size, count_limit);
         if result.is_some() { return None; }
@@ -253,10 +281,12 @@ impl IdentityProver {
         }
     }
 
+    /// Returns current assumptions as a cloned list (Python helper).
     fn get_assumed(&self) -> Vec<IdentityCirc> {
         self.assumed_identities().clone()
     }
     #[staticmethod]
+    /// Loads a prover from postcard serialization.
     fn from_postcard(filepath: String) -> pyo3::PyResult<Self> {
         use std::fs::File;
         use std::io::BufReader;
@@ -270,6 +300,7 @@ impl IdentityProver {
         Ok(eccs)
     }
 
+    /// Stores a prover as postcard serialization.
     fn dump_postcard(&self, filepath: String) -> pyo3::PyResult<()> {
         use std::fs::File;
         use std::io::BufWriter;

@@ -1,6 +1,6 @@
 
 use indicatif::ProgressIterator;
-use quclif::{circ::gates::*, search::double_perm_search::{Evaluator, RawECCs}, utils::FmtJoinIter};
+use qcel_howmany::{circ::gates::*, search::double_perm_search::{Evaluator, RawECCs}, utils::FmtJoinIter};
 use rand::SeedableRng;
 
 fn main() {

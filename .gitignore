@@ -79,3 +79,5 @@ perf.*
 profile.json.gz
 nohup.out
 **/.test.py
+.codex
+nohup.out

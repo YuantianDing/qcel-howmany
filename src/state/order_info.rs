@@ -7,6 +7,7 @@ use crate::{groups::permutation::Permut32, utils::FmtJoinIter};
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
 #[pyclass(eq, str)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Ordering/equality-class information for qubit symmetry handling.
 pub struct OrderInfo {
     pub permut: Vec<usize>,
     pub eq_classes: Vec<usize>,
@@ -84,6 +85,7 @@ impl OrderInfo {
 #[pyo3::pymethods]
 impl OrderInfo {
     #[new]
+    /// Creates a single-class ordering of `size` qubits.
     pub fn new(size: usize) -> Self {
         Self {
             permut: (0..size).collect(),
@@ -91,19 +93,24 @@ impl OrderInfo {
         }
     }
 
+    /// Number of current equality classes.
     pub fn n_eqclasses(&self) -> usize {
         self.eq_classes.len()
     }
+    /// Returns true if any equality class has size > 1.
     pub fn has_eq(&self) -> bool {
         self.n_eqclasses() < self.permut.len()
     }
+    /// Index of first non-trivial equality class.
     pub fn first_eqclass(&self) -> Option<usize> {
         (0..self.n_eqclasses()).find(|idx| self.get_eqclass(*idx).len() > 1)
     }
+    /// Index of first non-trivial equality class at/after `idx`.
     pub fn first_eqclass_after(&self, idx: usize) -> Option<usize> {
         (idx..self.n_eqclasses()).find(|idx| self.get_eqclass(*idx).len() > 1)
     }
 
+    /// Returns canonical permutation and equality bitmask.
     pub fn as_bits(&self) -> (Permut32, u8) {
         if self.permut.len() < 2 {
             return (Permut32::identity(self.permut.len() as u8), 0)

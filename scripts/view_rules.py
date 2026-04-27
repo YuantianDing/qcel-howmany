@@ -4,7 +4,7 @@ import os
 import sys
 from qiskit import quantum_info as qi
 import qiskit
-from quclif import IdentityCirc, Instr
+from qcel_howmany import IdentityCirc, Instr
 from gate_set import GATE_SETS
 
 def instr_to_tq(instr: Instr) -> str:
@@ -13,6 +13,10 @@ def instr_to_tq(instr: Instr) -> str:
     if instr.gate.name == "rz":
         param = instr.gate.params[0].replace("theta1", "theta_1").replace("theta2", "theta_2")
         return f"tq.rz(${param}$, {instr.qargs[0]})"
+    if instr.gate.name == "t1/2":
+        return f"tq.gate({instr.qargs[0]}, $sqrt(T)$)"
+    if instr.gate.name == "tdg1/2":
+        return f"tq.gate({instr.qargs[0]}, $sqrt(T^dagger)$)"
     else:
         return f"tq.{instr}"
 
@@ -39,7 +43,8 @@ def show_rules_pdf(file: str):
             # print(c.inner.instrs_with_swaps())
             lst = ", ".join(instr_to_tq(instr) for instr in c.inner.instrs_with_swaps())
             f.write(f'{i}. #quill.quantum-circuit(..tq.build({lst}))\n\n')
-    os.system(f"typst c /tmp/rules_view.typ {file.replace('json', 'pdf')} && code {file.replace('json', 'pdf')}")
+    os.system(f"typst c /tmp/rules_view.typ '{file.replace('json', 'pdf')}'")
+    print(f"Rules PDF generated at '{file.replace('json', 'pdf')}'")
     
 
 def circuit_to_quantikz(instrs: list[Instr]) -> str:

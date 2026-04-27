@@ -1,5 +1,5 @@
 import pytest
-import quclif.rs as rs
+import qcel_howmany.rs as rs
 
 
 def test_sum_as_string():

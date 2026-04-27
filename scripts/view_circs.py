@@ -4,7 +4,7 @@ import qiskit
 import qiskit.qasm2
 from qiskit.circuit import library as qlib
 import qiskit.quantum_info as qi
-import quclif
+import qcel_howmany
 import sys
 
 with open("viewing.tmp", 'w') as f:

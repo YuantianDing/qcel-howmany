@@ -1,12 +1,28 @@
+"""Public Python API for the qcel_howmany Rust extension.
+
+This module provides:
+- light wrappers to build Rust gates/instructions from Qiskit objects,
+- conversion helpers between Qiskit circuits and compact Rust instruction lists,
+- direct re-exports of core Rust classes (`ECCs`, `IdentityProver`, etc.).
+"""
+
 from numpy._core.numeric import allclose
 import qiskit
 import qiskit.circuit
 from qiskit.quantum_info import Operator
-import quclif.quclif as inner
+import qcel_howmany.qcel_howmany as inner
 from fractions import Fraction
 import math
 
 def format_number(num: float):
+    """Format a floating-point gate parameter in a readable symbolic form.
+
+    The formatter prefers:
+    - integers,
+    - exact small rational numbers,
+    - rational multiples of `pi`,
+    and falls back to a compact decimal string.
+    """
     if allclose(num, int(num)):
         return f"{int(num)}"
 
@@ -26,15 +42,24 @@ def format_number(num: float):
 DEFAULT_GATES = ["H", "X", "Z", "Y", "T", "TDG", "S", "SDG", "CX", "CY", "CZ", "CS", "CSDG", "SWAP"]
 
 def Gate(instr: str | qiskit.circuit.Instruction):
+    """Create a Rust gate object from a gate name or a Qiskit instruction."""
     if type(instr) == str:
         return inner.Gate.from_name(instr)
     else:
         return inner.Gate(instr.name, [format_number(p) for p in instr.params], Operator(instr).reverse_qargs().to_matrix())
 
 def Instruction(instr: qiskit._accelerate.circuit.CircuitInstruction):
+    """Convert one Qiskit `CircuitInstruction` into a Rust `Instruction`."""
     return inner.Instruction(Gate(instr.operation), [(qbit._register.name, qbit._index) for qbit in instr.qubits], [(cbit._register.name, cbit._index) for cbit in instr.clbits])
 
 def Circuit(circuit: qiskit.circuit.QuantumCircuit, with_regs=False) -> list[inner.Instruction] | list[inner.Instr]:
+    """Convert a Qiskit circuit to Rust instruction objects.
+
+    Args:
+        circuit: Input Qiskit circuit.
+        with_regs: If `False`, returns compact `Instr` with dense integer qubit ids.
+            If `True`, keeps register/index labels and returns `Instruction`.
+    """
     if not with_regs:
         result = []
         qregs_map = {}
@@ -52,6 +77,7 @@ def Circuit(circuit: qiskit.circuit.QuantumCircuit, with_regs=False) -> list[inn
         return [Instruction(instr) for instr in circuit.data]
 
 def to_qiskit(instrs: list[inner.Instruction] | list[inner.Instr]):
+    """Convert Rust instructions (`Instruction` or `Instr`) back to a Qiskit circuit."""
     if isinstance(instrs[0], inner.Instr):
         nqubits = max(q for i in instrs for q in i.qargs) + 1
 
@@ -90,6 +116,7 @@ def to_qiskit(instrs: list[inner.Instruction] | list[inner.Instr]):
 
         return circuit
 
+# Re-export core Rust types as the public Python surface.
 ECCs = inner.ECCs
 ECC = inner.ECC
 Instr = inner.Instr

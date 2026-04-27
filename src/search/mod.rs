@@ -13,6 +13,7 @@ pub mod double_perm_search;
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
 #[pyo3::pyclass(eq, str)]
 #[derive(Debug, Deref, DerefMut, Index, From, Into, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, PartialOrd, Ord)]
+/// One equivalence class of circuits.
 pub struct ECC(pub Vec<(Vec<Instr32>, Permut32)>);
 
 impl ECC {
@@ -53,6 +54,7 @@ impl std::fmt::Display for ECC {
 #[pyo3::pymethods]
 impl ECC {
     #[pyo3(name="circuits")]
+    /// Returns all circuits in this class with swap instructions materialized.
     fn circuits_py(&self) -> Vec<Vec<Instr32>> {
         self.circuits().collect()
     }
@@ -61,6 +63,7 @@ impl ECC {
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
 #[pyo3::pyclass(eq, str)]
 #[derive(Debug, Deref, DerefMut, Index, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, PartialOrd, Ord)]
+/// Collection of equivalence classes for a fixed number of qubits.
 pub struct ECCs {
     #[deref]
     #[deref_mut]
@@ -106,7 +109,8 @@ impl ECCs {
     //     let evaluator = Evaluator::from_random(nqubits, &mut rand::rng());
     //     RawECCs::generate(&evaluator, gates, max_size).simplify()
     // }
-    fn dump_quartz(&self, filepath: String) -> pyo3::PyResult<()> {
+    /// Exports ECCs to Quartz JSON format.
+    pub fn dump_quartz(&self, filepath: String) -> pyo3::PyResult<()> {
         use std::fs::File;
 
         let quartz_data = self.as_quartz();
@@ -120,6 +124,7 @@ impl ECCs {
     }
 
     #[staticmethod]
+    /// Loads ECCs from a postcard file.
     fn from_postcard(filepath: String) -> pyo3::PyResult<Self> {
         use std::fs::File;
         use std::io::BufReader;
@@ -133,6 +138,7 @@ impl ECCs {
         Ok(eccs)
     }
 
+    /// Saves ECCs as postcard.
     fn dump_postcard(&self, filepath: String) -> pyo3::PyResult<()> {
         use std::fs::File;
         use std::io::BufWriter;
@@ -146,6 +152,7 @@ impl ECCs {
         Ok(())
     }
     #[pyo3(name="check")]
+    /// Returns classes that fail randomized equivalence checks.
     pub fn check_py(&self) -> Vec<ECC> {
         self.check().cloned().collect()
     }
@@ -155,28 +162,30 @@ impl ECCs {
     }
     
     #[pyo3(name="to_list")]
+    /// Returns all classes as a Python list.
     pub fn to_list_py(&self) -> Vec<ECC> {
         self.eccs.clone()
     }
+    /// Removes classes with only one circuit.
     pub fn filter_single(&self) -> ECCs {
         ECCs {
             eccs: self.eccs.iter().filter(|ecc| ecc.len() > 1).cloned().collect(),
             nqubits: self.nqubits,
         }
     }
-    pub fn to_identity_circuits(&self) -> Vec<IdentityCirc> {
+    /// Converts classes into canonical identities plus witness circuit pairs.
+    pub fn to_identity_circuits(&self) -> Vec<(IdentityCirc, Circ, Circ)> {
         let mut identities = Vec::new();
         for ecc in self.iter() {
             let initial = Circ::new(ecc[0].0.clone(), ecc[0].1).inverse();
             for (c, p) in ecc.iter().skip(1) {
                 let c = Circ::new(c.clone(), *p);
-                identities.push((&initial + &c).rotate_representative());
+                identities.push(((&initial + &c).rotate_representative(), initial.clone(), c));
             }
         }
         identities.sort();
-        identities.dedup();
+        // identities.dedup();
         return identities;
     }
 }
-
 

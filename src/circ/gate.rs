@@ -69,6 +69,7 @@ static INSTRUCTION_SET: LazyLock<spin::RwLock<Vec<GateData>>> = LazyLock::new(||
 #[debug("Gate({} -> {}{})", self.0, self.name(), self.params().iter().fjoin_opt_braces(", ", "(", ")"))]
 #[display("{}{}", self.name(), self.params().iter().fjoin_opt_braces(", ", "(", ")"))]
 #[pyo3(name = "Gate")]
+/// Parameterized quantum gate definition used by both search and Python APIs.
 pub struct Gate16(u16);
 
 impl Serialize for Gate16 {
@@ -169,6 +170,7 @@ pub mod gates;
 impl Gate16 {
     #[gen_stub(skip)]
     #[new]
+    /// Creates (or interns) a gate from name, symbolic params, and unitary matrix.
     pub fn new_py(name: String, params: Vec<String>, matrix: PyArrayLike2<Complex64>) -> Self {
         Self::new(name, params, matrix.as_matrix().map(|a| 
             Qcplx::new(a.re.into(), a.im.into())
@@ -176,21 +178,25 @@ impl Gate16 {
     }
 
     #[staticmethod]
+    /// Looks up a built-in gate by display name.
     pub fn from_name(name: &str) -> Option<Self> {
         INSTRUCTION_SET.read().iter().position(|g| name == format!("{}", g)).map(|idx| Gate16(idx as u16))
     }
 
     #[getter(name)]
+    /// Gate name.
     pub fn name_py(&self) -> String {
         self.name()
     }
 
     #[getter(params)]
+    /// Symbolic parameter list.
     pub fn params_py(&self) -> Vec<String> {
         self.params()
     }
 
     #[getter(params_f)]
+    /// Numeric parameters evaluated with support for `pi` expressions.
     pub fn params_f_py(&self) -> PyResult<Vec<f64>> {
         let result: Result<Vec<f64>, NumericError> = self
             .params()
@@ -202,21 +208,26 @@ impl Gate16 {
     }
 
     #[getter(matrix)]
+    /// Dense unitary matrix.
     pub fn matrix_py<'py>(&self, py: pyo3::Python<'py>) -> pyo3::Bound<'py, PyArray2<Complex64>> {
         self.matrix(|m| <DMatrix<Complex64> as ToPyArray>::to_pyarray(&m.map(|m| num_complex::c64(m.re, m.im)), py).to_owned())
     }
     
     #[getter(nqargs)]
+    /// Number of qubit arguments required by this gate.
     pub fn nqargs_py(&self) -> usize {
         self.nqargs()
     }
     
     #[pyo3(name="adjoint")]
+    /// Returns the adjoint (inverse) gate.
     pub fn adjoin_py(&self) -> Gate16 {
         self.adjoint()
     }
 
     #[pyo3(signature=(*args))]
+    /// Binds arguments and returns either compact `Instr` (integer qargs)
+    /// or high-level `Instruction` (register-style args).
     pub fn __call__(&self, args: Either<Vec<u8>, Vec<Argument>>) -> Either<Instr32, Instruction> {
         match args {
             Either::Left(args) => {

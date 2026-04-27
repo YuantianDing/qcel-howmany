@@ -1,3 +1,5 @@
+//! Proof tracking and exported proof representation.
+
 use std::{arch::x86_64::_CMP_FALSE_OS, cmp::Reverse, collections::{BinaryHeap, HashMap, HashSet, VecDeque}, future::Future, ops::IndexMut, task::Waker};
 
 use clap::Id;
@@ -196,6 +198,11 @@ impl ProofTracker {
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
 #[pyo3::pyclass(eq, ord)]
 #[derive(Debug, Clone, Deref, DerefMut, Default, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize, Index, From, Into)]
+/// Exported proof DAG.
+///
+/// Each entry stores:
+/// - an identity circuit,
+/// - either `None` (assumption) or `(lhs_idx, rhs_idx)` showing how it is derived.
 pub struct Proof(pub Vec<(IdentityCirc, Option<(usize,usize)>)>);
 
 impl std::fmt::Display for Proof {
@@ -214,11 +221,13 @@ impl std::fmt::Display for Proof {
 #[pyo3::pymethods]
 impl Proof {
     #[new]
+    /// Creates a proof from raw `(identity, dependency)` entries.
     fn new_py(data: Vec<(IdentityCirc, Option<(usize,usize)>)>) -> Self {
         Proof(data)
     }
 
     #[getter]
+    /// Returns raw proof entries.
     fn raw(&self) -> Vec<(IdentityCirc, Option<(usize,usize)>)> {
         self.0.clone()
     }

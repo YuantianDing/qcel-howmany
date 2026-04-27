@@ -14,6 +14,7 @@ use std::ops::{Add, AddAssign};
 #[gen_stub_pyclass]
 #[pyo3::pyclass(eq, ord, sequence)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Index, serde::Serialize, serde::Deserialize)]
+/// Circuit with an explicit trailing qubit permutation.
 pub struct Circ {
     #[index]
     #[pyo3(get)]
@@ -184,6 +185,7 @@ impl Circ {
 impl Circ {
     #[new]
     #[pyo3(signature = (instrs, perm=None))]
+    /// Creates a circuit from instructions and an optional permutation.
     fn new_py(instrs: Vec<Instr32>, perm: Option<Permut32>) -> Self {
         let Some(p) = perm else {
             return Circ::new_no_perm(instrs);
@@ -191,23 +193,27 @@ impl Circ {
         Circ::new(instrs, p)
     }
 
-
+    /// Number of qubits tracked by the permutation.
     pub fn nqubits(&self) -> u8 {
         self.perm.len()
     }
     #[pyo3(name = "rotate_representative")]
+    /// Returns canonical identity representative across rotations/permutations.
     fn rotate_representative_py(&self) -> IdentityCirc {
         self.clone().rotate_representative()
     }
     #[pyo3(name = "representative")]
+    /// Returns canonical circuit representative.
     fn representative_py(&self) -> Circ {
         self.clone().representative()
     }
     #[pyo3(name = "representative_with_perm")]
+    /// Returns `(representative, applied_perm)` used in canonicalization.
     fn representative_with_perm_py(&self) -> (Circ, Permut32) {
         self.clone().representative_with_perm()
     }
 
+    /// Applies a qubit permutation to this circuit.
     pub fn permut(&self, perm: Permut32) -> Self {
         let (self_perm, other_perm) = self.perm.coordinate_permute(perm);
         let new_instrs = self
@@ -219,6 +225,7 @@ impl Circ {
         Circ::new(new_instrs, new_perm)
     }
 
+    /// Removes explicit swap gates into the stored trailing permutation.
     pub fn remove_swaps(&self) -> Self {
         let mut qregs_map: Vec<u8> = (0..self.nqubits()).collect();
         let mut new_instrs = Vec::new();
@@ -237,8 +244,7 @@ impl Circ {
         Circ::new(new_instrs, last_perm)
     }
 
-
-
+    /// Returns inverse circuit.
     pub fn inverse(&self) -> Self {
         let new_instrs = self
             .instrs
@@ -249,6 +255,7 @@ impl Circ {
         Circ::new(new_instrs, self.perm.inv())
     }
 
+    /// Circularly rotates instruction order by `n`.
     pub fn rotate(&self, n: isize) -> Self {
         if n == 0 { return self.clone(); }
         let len = self.instrs.len();
@@ -272,14 +279,17 @@ impl Circ {
         Circ::new(new_instrs, self.perm.clone())
     }
 
+    /// Number of instructions.
     pub fn len(&self) -> usize {
         self.instrs.len()
     }
 
+    /// Returns whether the circuit is empty.
     pub fn is_empty(&self) -> bool {
         self.instrs.is_empty()
     }
 
+    /// Returns instructions plus swaps needed for stored permutation.
     pub fn instrs_with_swaps(&self) -> Vec<Instr32> {
         let mut instrs = self.instrs.clone();
         instrs.extend(

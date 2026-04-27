@@ -6,32 +6,32 @@ import qiskit
 import qiskit.qasm2
 from qiskit.circuit import library as qlib
 import qiskit.quantum_info as qi
-import quclif
+import qcel_howmany
 
 from gate_set import GATE_SETS
 
-def generate_eccs(gate_set: str, ngates: int, nqubits: int = 5, naive=False) -> tuple[quclif.ECCs, dict]:
+def generate_eccs(gate_set: str, ngates: int, nqubits: int = 5, naive=False) -> tuple[qcel_howmany.ECCs, dict]:
     name = f".cache/eccset-{gate_set.replace("/", "::")}-{ngates}-{nqubits}{'-naive' if naive else ''}.eccs"
     if os.path.exists(name) and os.path.exists(name + ".json"):
-        ecc_set = quclif.ECCs.from_postcard(name)
+        ecc_set = qcel_howmany.ECCs.from_postcard(name)
         with open(name + ".json") as f:
             metadata = json.load(f)
         return ecc_set, metadata
     
     start = time.time_ns()
-    evaluator = quclif.Evaluator(nqubits=nqubits)
-    (ecc_set, counters) = quclif.RawECCs.generate(
+    evaluator = qcel_howmany.Evaluator(nqubits=nqubits)
+    (ecc_set, counters) = qcel_howmany.RawECCs.generate(
         evaluator,
-        gates=[quclif.Gate(g.lower()) for g in GATE_SETS[gate_set]],
+        gates=[qcel_howmany.Gate(g.lower()) for g in GATE_SETS[gate_set]],
         max_size=ngates,
     )
     duration = time.time_ns() - start
 
     if naive:
         start = time.time_ns()
-        (ecc_set0, counters) = quclif.RawECCs.generate_naive(
+        (ecc_set0, counters) = qcel_howmany.RawECCs.generate_naive(
             evaluator,
-            gates=[quclif.Gate(g.lower()) for g in GATE_SETS[gate_set]],
+            gates=[qcel_howmany.Gate(g.lower()) for g in GATE_SETS[gate_set]],
             max_size=ngates,
         )
         duration = time.time_ns() - start

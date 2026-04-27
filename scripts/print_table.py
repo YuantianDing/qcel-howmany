@@ -25,6 +25,8 @@ def retrieve_data():
             data[gate_set_name][ngates]['eccset-naive'] = load(f".cache/eccset-{gate_set_name.replace("/","::")}-{ngates}-5-naive.eccs.json")
         for ngates in range(1, naive_gate_count + 1):
             data[gate_set_name][ngates]['prove-naive'] = load(f".cache/prove-{gate_set_name.replace("/","::")}-{ngates}-5-naive.json")
+        for ngates in range(1, naive_gate_count + 1):
+            data[gate_set_name][ngates]['prover-naive'] = load(f".cache/prover-{gate_set_name.replace("/","::")}-{ngates}-5-naive.prover.json")
     return data
 
 def get_dataframe(f):

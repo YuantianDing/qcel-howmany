@@ -17,6 +17,7 @@ use std::collections::{HashSet, VecDeque};
 #[gen_stub_pyclass]
 #[pyo3::pyclass(eq, ord, frozen, sequence, dict)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deref, serde::Serialize, serde::Deserialize)]
+/// Canonical identity circuit (a circuit proven equivalent to identity).
 pub struct IdentityCirc(Circ);
 
 impl IdentityCirc {
@@ -64,19 +65,23 @@ impl IdentityCirc {
 #[pyo3::pymethods]
 impl IdentityCirc {
     #[new]
+    /// Creates an identity circuit and checks it is semantically valid.
     pub fn unchecked(circuit: Circ) -> Self {
         let result = Self(circuit);
         assert!(result.check(), "IdentityCirc: circuit is not identity {}", result);
         result
     }
     #[staticmethod]
+    /// Parses a Python-serialized identity object.
     pub fn from_python(obj: &Bound<'_, PyAny>) -> pythonize::Result<Self> {
         pythonize::depythonize(obj)
     }
+    /// Returns number of qubits.
     pub fn nqubits(&self) -> u8 {
         self.0.nqubits()
     }
 
+    /// For each argument of gate `gate_id`, returns next gate index using that qubit.
     pub fn qargs_forward(&self, gate_id: usize) -> Vec<usize> {
         let qargs = &self.0[gate_id].1;
         let mut qargs_coverage: Vec<usize> = vec![usize::MAX; qargs.len()];
@@ -103,6 +108,7 @@ impl IdentityCirc {
         qargs_coverage
     }
 
+    /// For each argument of gate `gate_id`, returns previous gate index using that qubit.
     pub fn qargs_backward(&self, gate_id: usize) -> Vec<usize> {
         let qargs = &self.0[gate_id].1;
         let mut qargs_coverage: Vec<usize> = vec![usize::MAX; qargs.len()];
@@ -128,6 +134,7 @@ impl IdentityCirc {
         assert!(!qargs_coverage.iter().any(|&x| x == usize::MAX), "a {self} {rotated_circ:?} {gate_id}");
         qargs_coverage
     }
+    /// Randomized semantic check that this circuit is identity.
     pub fn check(&self) -> bool {
         let mut state1 = StateVec::from_random(&mut StdRng::from_os_rng(), self.nqubits() as u32);
         let mut state2 = state1.clone();
@@ -144,10 +151,11 @@ impl IdentityCirc {
         }
         state2.normalize_arg();
 
-        assert!(state1.loose_eq(&state2), "IdentityCirc: circuit is not identity {state1} {state2}");
+        assert!(state1.loose_eq(&state2), "IdentityCirc: circuit is not identity {state1} {state2} {self}");
         
         state1.loose_eq(&state2)
     }
+    /// Stable hash of the canonical identity representation.
     pub fn hash_value(&self) -> u64 {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
@@ -168,6 +176,7 @@ impl IdentityCirc {
         hasher.finish()
     }
     #[getter]
+    /// Underlying circuit representation.
     pub fn inner(&self) -> Circ {
         self.0.clone()
     }
@@ -177,6 +186,7 @@ impl IdentityCirc {
     pub fn __getitem__(&self, idx: isize) -> Instr32 {
         self.0[idx.rem_euclid(self.len() as isize) as usize].clone()
     }
+    /// Converts this identity to a Python-serializable form.
     pub fn pythonize<'py>(&self, py: pyo3::Python<'py>) -> pythonize::Result<Bound<'py, pyo3::PyAny>> {
         pythonize::pythonize(py, self)
     }
