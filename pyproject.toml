@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "qcel_howmany"
-requires-python = ">=3.8"
+requires-python = ">=3.13"
 description = "Rust-accelerated tool for quantum circuit identity generation and proving (CAV 2026 artifact)"
 readme = "README.md"
 license = { text = "MIT" }
