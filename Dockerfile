@@ -12,6 +12,7 @@ RUN apt-get update \
         python3 \
         python3-pip \
         python3-venv \
+        python3-dev \
         build-essential \
         pkg-config \
         libssl-dev \
@@ -63,6 +64,7 @@ RUN pip3 install --break-system-packages --no-cache-dir /tmp/wheels/*.whl \
         tables \
         tqdm \
     && rm -rf /tmp/wheels /root/.cache/pip
+RUN rustup default nightly
 
 COPY --from=builder /usr/local/cargo/bin/typst /usr/local/bin/typst
 
@@ -71,12 +73,14 @@ COPY quartz ${APP_HOME}/quartz
 COPY scripts ${APP_HOME}/scripts
 COPY python ${APP_HOME}/python
 COPY src ${APP_HOME}/src
+COPY Cargo.lock ${APP_HOME}/
 COPY Cargo.toml ${APP_HOME}/
 COPY pyproject.toml ${APP_HOME}/
 COPY uv.lock ${APP_HOME}/
 
 
 COPY README.md ${APP_HOME}/
+COPY PYTHON-API.md ${APP_HOME}/
 # Show a welcome message for interactive bash sessions while keeping
 # the system/default prompt behavior intact.
 RUN printf '%s\n' \

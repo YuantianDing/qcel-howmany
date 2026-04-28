@@ -10,12 +10,10 @@ NGATES = {
     # number of gates to (build prover, prove, run naive method)
     "logical": (9, 9, 9),
     "clifford": (6, 8, 6),
-    "clifford-t": (6, 8, 7),
-    "common-clifford-t": (5, 5, 4),
-    "clifford-t1/2": (6, 7, 5),
-    "clifford-rz(pi/3)": (6, 7, 5),
-    # "clifford-rz(pi/5)": (5, 6, 4),
-    # "clifford-rz(pi/16)": (5, 6, 4),
+    "clifford-t": (6, 8, 6),
+    # "common-clifford-t": (5, 5, 4),
+    # "clifford-t1/2": (6, 7, 5),
+    # "clifford-rz(pi/3)": (6, 7, 5),
 }
 
 if __name__ == "__main__":

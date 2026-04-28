@@ -45,7 +45,7 @@ docker run -it --rm qcel-howmany
 The container drops you into a shell at `/workspace/qcel_howmany` with the
 package already installed and `typst` on the `PATH`.
 
-Not that to trim down the image size, the docker container does not include the building toolchain to recompile the Rust code into a Python module.
+Note that to trim down the image size, the docker container does not include the building toolchain to recompile the Rust code into a Python module. We use Debian's `slim-trixie` image as the base image.
 
 ### Option 2 — Local build
 
@@ -111,11 +111,11 @@ active (or inside the Docker container).
 
 ## Reproducing the Experiments
 
-Before going into the commands, we first show the identifiers for the gate sets used in our `scripts/`.
+Before going into the commands, we first the gate sets configuration used in our `scripts/`.
 
-## Gate Set Names
+## Gate Set Configuration
 
-Defined in [`scripts/gate_set.py`](./scripts/gate_set.py):
+Gate sets are defined in [`scripts/gate_set.py`](./scripts/gate_set.py):
 
 ```python
 GATE_SETS = {
@@ -128,9 +128,25 @@ GATE_SETS = {
 }
 ```
 
-The artifact uses the name `logical` for the reversible classical gate set
-`{X, CX}`; the paper text refers to this set as `classic`.
+The artifact uses the name `logical` for the reversible classical gate set `{X, CX}`; the paper text refers to this set as `classic`.
 
+Experiments configurations are shown in [`scripts/run_all.py`](./scripts/run_all.py) in the `NGATES` dictionary:
+
+```python
+NGATES = {
+    # number of gates to (build prover, prove, run naive method)
+    "logical": (9, 9, 9),
+    "clifford": (6, 8, 6),
+    "clifford-t": (6, 8, 6),
+    # "common-clifford-t": (5, 5, 4),
+    # "clifford-t1/2": (6, 7, 5),
+    # "clifford-rz(pi/3)": (6, 7, 5),
+}
+```
+
+The first number is the highest number of gates for which we build a "prover", i.e. `rules` table defined in Algorithm 3 of the paper, which consumes a lot of memory and time for larger gate sets, and run full version of Algorithm 3 of the paper. The second number is the highest number of gates for which we run the full synthesis, but use the previous prover to prove that no additional rules are needed. The third number is the highest number of gates for which we run the naive method, which is much slower and memory intensive than the optimized method, so we only run it for smaller gate counts.
+
+In this artifact, by default, we only run 3 gate sets (`logical`, `clifford`, and `clifford-t`) for simplicity and to reduce the total runtime. The other three gate sets (`common-clifford-t`, `clifford-t1/2`, and `clifford-rz(pi/3)`) are commented out in the above dictionaries; you can uncomment them to run them as well.
 
 ### 5.1 — Synthesis and Pruning
 
@@ -207,7 +223,7 @@ python3 scripts/run_floatpoints.py
 
 This invokes `cargo run --release --bin run_synthesis_fp` for several
 precision levels (with and without the `f128` Cargo feature), caches the
-results in `.cache/fixed_point_results.h5`, and prints a LaTeX table.
+results in `.cache/fixed_point_results.h5`, and prints a LaTeX table. The compiling and running of the Rust binary may take a while, especially for the `f128` feature.
 
 ### 5.2.4 — Exportable Proofs
 
