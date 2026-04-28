@@ -81,3 +81,5 @@ nohup.out
 **/.test.py
 .codex
 nohup.out
+
+.artifact/
