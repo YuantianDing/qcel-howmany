@@ -21,6 +21,7 @@ def show_proof_pdf(proof: qcel_howmany.Proof):
             f.write(f'\t[{i} $<-$ {text}], [#quill.quantum-circuit(..tq.build({lst}))],\n')
         f.write(f')\n')
     os.system(f"typst c proof_view.typ proof_view.pdf")
+    print("Proof written to proof_view.pdf")
 
 def circuit_to_quantikz(instrs: list[Instr]) -> str:
     nqubits = max(q for instr in instrs for q in instr.qargs) + 1
