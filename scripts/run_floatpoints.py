@@ -12,7 +12,7 @@ def run_synthesis(percision_level = 24, f128 = False):
     if f128:
         commands.append("-Ff128")
     
-    print(f"Compiling PERCISION_LEVEL={percision_level} {'f128' if f128 else 'f64'}", end=' ', flush=True)
+    print(f"PERCISION_LEVEL={percision_level} {' '.join(commands)}", end=' ', flush=True)
     os.environ["PERCISION_LEVEL"] = str(percision_level)
     process = subprocess.run(commands, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     del os.environ["PERCISION_LEVEL"]
@@ -22,6 +22,8 @@ def run_synthesis(percision_level = 24, f128 = False):
     return result
 
 if __name__ == "__main__":
+    if not os.path.exists('.cache'):
+        os.makedirs('.cache')
     with pd.HDFStore('.cache/fixed_point_results.h5') as store:
         if 'df' in store:
             df = store['df']

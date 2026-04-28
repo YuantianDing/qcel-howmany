@@ -13,7 +13,7 @@ fn main() {
         RawECCs::generate_naive(&evaluator, vec![*H, *X, *TDG, *T, *CX], ngates) // *CY, *CZ, *Y, *Z, *SDG, *S
     };
 
-    println!("Number of ECCs: {}", eccs.len());
+    println!("{}", eccs.len());
  
-    eccs.simplify().dump_quartz("./cache/_eccset.json".into()).expect("");
+    // eccs.simplify().dump_quartz("./cache/_eccset.json".into()).expect("");
 }

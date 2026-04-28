@@ -193,7 +193,7 @@ impl Qreal {
         Qcplx::new(Qreal(angle.cos()), Qreal(angle.sin()))
     }
     pub fn loose_eq(self: Qreal, b: Qreal) -> bool {
-        (self.0 * ((1 << 8) as f64)) as i64 == (b.0 * ((1 << 8) as f64)) as i64 
+        (self.0 * ((1 << 8) as f128)) as i64 == (b.0 * ((1 << 8) as f128)) as i64 
     }
 }
 pub type Qcplx = Complex<Qreal>;
