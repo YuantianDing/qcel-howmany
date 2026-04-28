@@ -11,7 +11,7 @@ from view_rules import grids_levelup, instr_to_tq, show_rules_pdf
 
 def show_proof_pdf(proof: qcel_howmany.Proof):
     circuits = [(identity, rule) for identity, rule in proof.raw]
-    with open("/tmp/rules_view.typ", "w") as f:
+    with open("proof_view.typ", "w") as f:
         f.write('#import "@preview/quill:0.7.2" as quill: tequila as tq\n#set align(center)\n#table(columns: 2, align: horizon, [*Rule*], [*Circuit*], \n')
         for i, (circ, rule) in enumerate(circuits):
             # assert qi.Operator(c.to_qiskit()).equiv(qi.Operator(qiskit.QuantumCircuit(c.nqubits())))
@@ -20,7 +20,7 @@ def show_proof_pdf(proof: qcel_howmany.Proof):
             lst = ", ".join(instr_to_tq(instr) for instr in circ.inner.instrs_with_swaps())
             f.write(f'\t[{i} $<-$ {text}], [#quill.quantum-circuit(..tq.build({lst}))],\n')
         f.write(f')\n')
-    os.system(f"typst c /tmp/rules_view.typ /tmp/rules_view.pdf")
+    os.system(f"typst c proof_view.typ proof_view.pdf")
 
 def circuit_to_quantikz(instrs: list[Instr]) -> str:
     nqubits = max(q for instr in instrs for q in instr.qargs) + 1

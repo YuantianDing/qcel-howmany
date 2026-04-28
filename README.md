@@ -5,6 +5,8 @@ This repository is the artifact for the CAV 2026 paper
 *"How Many Quantum Circuit Identities Are Needed to Generate All Others?"*
 The paper PDF is included in this repo: [`cav26.pdf`](./cav26.pdf).
 
+Links: [Rust API](https://yuantianding.github.io/qcel-howmany/) [Python API](https://github.com/YuantianDing/qcel-howmany/blob/main/PYTHON-API.md)
+
 ## Overview
 
 The artifact is a Rust core (with Python bindings via PyO3) and a set of Python
@@ -107,6 +109,10 @@ active (or inside the Docker container).
 └── Dockerfile
 ```
 
+## Reproducing the Experiments
+
+Before going into the commands, we first show the identifiers for the gate sets used in our `scripts/`.
+
 ## Gate Set Names
 
 Defined in [`scripts/gate_set.py`](./scripts/gate_set.py):
@@ -125,9 +131,6 @@ GATE_SETS = {
 The artifact uses the name `logical` for the reversible classical gate set
 `{X, CX}`; the paper text refers to this set as `classic`.
 
-## Reproducing the Experiments
-
-All commands below are run from the repository root.
 
 ### 5.1 — Synthesis and Pruning
 
@@ -150,6 +153,8 @@ python3 scripts/print_table.py            # text
 python3 scripts/print_table.py --latex    # LaTeX
 ```
 
+`scripts/print_table.py` can be run before `scripts/run_all.py` finishes; unfinished configurations are shown as `w`.
+
 Cells marked `w` are configurations that have not finished yet.
 
 To run a single configuration:
@@ -166,7 +171,7 @@ Note that due to a limitation of PyO3, it is impossible to `KeyboardInterrupt` a
 
 ### 5.2.1 — Comparison with a Naive Baseline
 
-Add `--naive` to the same commands:
+`scripts/run_all.py` will automatically run the naive baselines. To view the result of naive method, add `--naive` to these commands:
 
 ```bash
 python3 scripts/print_table.py --naive
@@ -191,6 +196,8 @@ python3 scripts/prove_quartz.py common-clifford-t  5 quartz/common-clifford-t-5c
 python3 scripts/prove_quartz.py clifford-t1/2      5 quartz/clifford-t1-2complete_ECC_set.json
 python3 scripts/prove_quartz.py "clifford-rz(pi/3)" 5 quartz/clifford-rz-pi-3pruning_unverified.json
 ```
+
+To generate these ECC sets using Quartz, we provide another Docker image `yuantianding/quartz-gen-ecc` at `docker.io`. Running this image directly with `docker run` will automatically generate the ECC set files mentioned above using Quartz, under `/quartz/eccset` directory. Using `docker cp` can directly extract these files from the Docker container. It's worthy to note that we edited Quartz to add additional gates for comparison with our method. Our version of Quartz is availble at [https://github.com/YuantianDing/quartz](https://github.com/YuantianDing/quartz).
 
 ### 5.2.3 — Impact of Floating-Point Precision
 
@@ -219,8 +226,8 @@ python3 scripts/view_proof.py clifford 6 \
     "cx(0, 1); cx(2, 0); cx(1,2); cx(0, 1); cx(2, 0); cx(1, 2); cx(0, 1); swap(0, 2); swap(1, 2)"
 ```
 
-The Typst PDF is written to `/tmp/rules_view.pdf`. The `--latex` form prints
-the snippet to stdout; the PDF form requires `typst` on the `PATH`.
+The Typst PDF is written to `proof_view.pdf` of the current working directory. The `--latex` form prints
+the snippet to stdout; the PDF form requires `typst` command on the `PATH`.
 
 ## Notes
 
@@ -228,9 +235,8 @@ the snippet to stdout; the PDF form requires `typst` on the `PATH`.
   [`postcard`](https://crates.io/crates/postcard) serialization, tabular data
   uses HDF5 (`.h5`). ECC sets and proofs are also exported as JSON for
   inspection. Delete `.cache/` to rerun from scratch.
-- **Rust API docs.** `cargo doc --open` builds and opens the Rust docs.
 - **Python stubs.** `python/qcel_howmany/qcel_howmany.pyi` is generated from
   Rust doc comments via the `stub_gen` binary in [`src/bin/stub_gen.rs`](./src/bin/stub_gen.rs).
 - **Proof / rule visualization.** [`scripts/view_proof.py`](./scripts/view_proof.py)
   and [`scripts/view_rules.py`](./scripts/view_rules.py) shell out to `typst`
-  to produce PDFs; install `typst` and ensure it is on the `PATH` to use them.
+  to produce PDFs; install `typst` and ensure it is on the `PATH` to use them (It is available in the given Docker container).
