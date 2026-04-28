@@ -5,16 +5,32 @@ build-backend = "maturin"
 [project]
 name = "qcel_howmany"
 requires-python = ">=3.8"
+description = "Rust-accelerated tool for quantum circuit identity generation and proving (CAV 2026 artifact)"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Yuantian Ding", email = "work.yt.ding@gmail.com" },
+]
+keywords = ["quantum", "circuit", "optimization", "identity", "ECC"]
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Intended Audience :: Science/Research",
 ]
 dynamic = ["version"]
 dependencies = [
     "click>=8.1.8",
     "qiskit>=1.2.4",
 ]
+
+[project.urls]
+Homepage = "https://github.com/YuantianDing/qcel-howmany"
+Repository = "https://github.com/YuantianDing/qcel-howmany"
+Documentation = "https://yuantianding.github.io/qcel-howmany/"
+"Bug Tracker" = "https://github.com/YuantianDing/qcel-howmany/issues"
+
 [project.optional-dependencies]
 tests = [
     "pytest",
