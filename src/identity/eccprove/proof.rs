@@ -1,6 +1,6 @@
 //! Proof tracking and exported proof representation.
 
-use std::{arch::x86_64::_CMP_FALSE_OS, cmp::Reverse, collections::{BinaryHeap, HashMap, HashSet, VecDeque}, future::Future, ops::IndexMut, task::Waker};
+use std::{cmp::Reverse, collections::{BinaryHeap, HashMap, HashSet, VecDeque}, future::Future, ops::IndexMut, task::Waker};
 
 use clap::Id;
 use derive_more::{Deref, DerefMut, From, Index, Into};
