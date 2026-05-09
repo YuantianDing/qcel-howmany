@@ -7,6 +7,10 @@ The paper PDF is included in this repo: [`cav26.pdf`](./cav26.pdf).
 
 Links: [Rust API](https://yuantianding.github.io/qcel-howmany/) [Python API](https://github.com/YuantianDing/qcel-howmany/blob/main/PYTHON-API.md)
 
+Artifact DOI: <https://doi.org/10.5281/zenodo.1983638>. This is the
+version-specific Zenodo DOI for the submitted artifact package evaluated with
+this paper.
+
 ## Overview
 
 The artifact is a Rust core (with Python bindings via PyO3) and a set of Python
@@ -20,15 +24,26 @@ It covers six gate sets — `logical`, `clifford`, `clifford-t`,
 - a fixed-point precision study (Section 5.2.3), and
 - an exportable proof viewer (Section 5.2.4).
 
-For evaluation, we recommend a machine with at least 16-core CPU and 32 GB of RAM. A
-full sweep may take one to two days; you can stop at any point and inspect the
+For evaluation, we recommend a machine with at least 16-core CPU and 32 GB of
+RAM. A full sweep may take one to two days on our experimental environment
+(Intel Xeon E5, 40 vCPUs, 128 GB RAM), but runtime depends heavily on the
+machine and selected configurations. You can stop at any point and inspect the
 partial results, or run a single configuration for a quick check.
 
 ## Setup
 
 ### Option 1 — Docker (recommended)
 
-Pull the prebuilt image:
+If you are evaluating the submitted artifact package and have the bundled image
+archive from the version-specific artifact DOI above, load that exact image
+first:
+
+```bash
+docker load -i qcel-howmany.tar.gz
+docker run -it --rm yuantianding/qcel-howmany:latest
+```
+
+Alternatively, pull the prebuilt image from Docker Hub:
 
 ```bash
 docker pull yuantianding/qcel-howmany
@@ -45,7 +60,8 @@ docker run -it --rm qcel-howmany
 The container drops you into a shell at `/workspace/qcel_howmany` with the
 package already installed and `typst` on the `PATH`.
 
-Note that to trim down the image size, the docker container does not include the building toolchain to recompile the Rust code into a Python module. We use Debian's `slim-trixie` image as the base image.
+Note that to trim down the image size, the docker container does not include the building toolchain to recompile the Rust code into a Python module. We use Debian's `slim-trixie` image as the base image. During PDF generation, Typst may download the package
+  `@preview/quill:0.7.2` if it is not already cached.
 
 ### Option 2 — Local build
 
@@ -196,24 +212,77 @@ python3 scripts/run_once.py <gate_set_name> <ngates> --naive
 
 ### 5.2.2 — Proving Existing Quantum Optimizations (Quartz)
 
-Quartz ECC sets are in [`quartz/`](./quartz). Usage:
+Quartz ECC sets used by this artifact are in [`quartz/`](./quartz). Usage:
 
 ```bash
 python3 scripts/prove_quartz.py <gate_set_name> <ngates> <quartz_ecc>.json
 ```
 
-The exact commands used in the paper:
+For the Quartz ECC sets bundled in the Docker container, run:
 
 ```bash
 python3 scripts/prove_quartz.py logical            6 quartz/classic-5complete_ECC_set.json
 python3 scripts/prove_quartz.py clifford           6 quartz/clifford-5complete_ECC_set.json
 python3 scripts/prove_quartz.py clifford-t         6 quartz/clifford-t-5complete_ECC_set.json
-python3 scripts/prove_quartz.py common-clifford-t  5 quartz/common-clifford-t-5complete_ECC_set.json
-python3 scripts/prove_quartz.py clifford-t1/2      5 quartz/clifford-t1-2complete_ECC_set.json
-python3 scripts/prove_quartz.py "clifford-rz(pi/3)" 5 quartz/clifford-rz-pi-3pruning_unverified.json
 ```
 
-To generate these ECC sets using Quartz, we provide another Docker image `yuantianding/quartz-gen-ecc` at `docker.io`. Running this image directly with `docker run` will automatically generate the ECC set files mentioned above using Quartz, under `/quartz/eccset` directory. Using `docker cp` can directly extract these files from the Docker container. It's worthy to note that we edited Quartz to add additional gates for comparison with our method. Our version of Quartz is availble at [https://github.com/YuantianDing/quartz](https://github.com/YuantianDing/quartz).
+However, due to Github file's size limit, these files are not available in the git repository. You may generate these files using the following method:
+
+
+First, we have to edit Quartz to add the gate sets needed for comparison with our method. Our
+version of Quartz is available at <https://github.com/YuantianDing/quartz>, and
+the changes can be visualized at
+<https://github.com/YuantianDing/quartz/commit/c0d4d4b9d3937ecec6812499028fd2df1799d7d9>.
+Briefly, this commit adds Quartz gate definitions/registrations for `CY`,
+`T1/2`, `TDG1/2`, `RZ(pi/3)`, and `RZ(-pi/3)`, adjusts the build to use a static
+`quartz_runtime` library in the Docker environment, and replaces the default
+ECC-generation test driver with the CAV 2026 configurations used to generate
+the `logical`, `clifford`, `clifford-t`, `common-clifford-t`, `clifford-t1/2`,
+and `clifford-rz(pi/3)` ECC sets.
+
+To generate ECC sets using this version of Quartz, we provide a separate Docker image,
+`yuantianding/quartz-gen-ecc`, on Docker Hub (and `quartz-gen-ecc.tar.gz` in the DOI link). The image uses `/quartz` as its
+working directory and its default command is:
+
+```bash
+conda run --no-capture-output -n quartz ./build/gen_ecc_set
+```
+
+Therefore, calling `docker run` with no extra command starts the Quartz synthesis
+process immediately. The generated files are written inside the container under
+`/quartz/eccset`.
+
+Use the following commands to run the generator and then copy the generated ECC
+sets back to the host:
+
+```bash
+docker pull yuantianding/quartz-gen-ecc
+docker run --name quartz-gen-ecc yuantianding/quartz-gen-ecc
+docker cp quartz-gen-ecc:/quartz/eccset ./quartz-eccset
+docker rm quartz-gen-ecc
+```
+
+If you want to keep the terminal free while generation runs, start the container
+in the background and follow its logs:
+
+```bash
+docker run -d --name quartz-gen-ecc yuantianding/quartz-gen-ecc
+docker logs -f quartz-gen-ecc
+docker wait quartz-gen-ecc
+docker cp quartz-gen-ecc:/quartz/eccset ./quartz-eccset
+docker rm quartz-gen-ecc
+```
+
+To inspect the image without starting synthesis, override the entrypoint. For
+example:
+
+```bash
+docker run --rm --entrypoint ls yuantianding/quartz-gen-ecc -la /quartz/eccset
+docker run --rm --entrypoint pwd yuantianding/quartz-gen-ecc
+```
+
+On non-x86 machines, you may need to add `--platform linux/amd64` to the
+`docker run` commands.
 
 ### 5.2.3 — Impact of Floating-Point Precision
 
