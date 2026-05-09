@@ -5,7 +5,7 @@ This repository is the artifact for the CAV 2026 paper
 *"How Many Quantum Circuit Identities Are Needed to Generate All Others?"*
 The paper PDF is included in this repo: [`cav26.pdf`](./cav26.pdf).
 
-Links: [Rust API](https://yuantianding.github.io/qcel-howmany/) [Python API](https://github.com/YuantianDing/qcel-howmany/blob/main/PYTHON-API.md)
+Links: [Rust API](https://yuantianding.github.io/qcel-howmany/) [Python API](https://github.com/YuantianDing/qcel-howmany/blob/main/PYTHON-API.md) [PyPI](https://pypi.org/project/qcel-howmany/)
 
 Artifact DOI: <https://doi.org/10.5281/zenodo.1983638>. This is the
 version-specific Zenodo DOI for the submitted artifact package evaluated with
@@ -87,6 +87,20 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install maturin pandas tqdm tables pillow pylatexenc qiskit
 maturin develop --release
 ```
+
+### Option 3 — PyPI install
+
+If you only want to run the Python scripts from this repository and do not need
+to rebuild the Rust extension locally, install the released wheel from PyPI
+together with the `dev` dependencies:
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install qcel-howmany pandas tqdm tables pillow pylatexenc
+```
+
+With these dependencies installed, you can run the scripts in [`scripts/`](./scripts/)
+from the repository root.
 
 All commands below assume you run them from the repository root with the venv
 active (or inside the Docker container).
