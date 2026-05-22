@@ -184,7 +184,8 @@ impl ECCs {
             }
         }
         identities.sort();
-        // identities.dedup();
+        identities.dedup_by(|x, y| x.0 == y.0);
+        // println!("Found {} identities.", identities.len());
         return identities;
     }
 }

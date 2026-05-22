@@ -61,7 +61,7 @@ impl IdentityProver {
         identities.dedup();
         eprintln!("Proving Identities");
         for id in identities.into_iter().progress() {
-            prover.add_identity(id, 3, 50000000);
+            prover.add_identity(id, 2, 50000);
         }
         
         // eprintln!("Removing redundant assumptions");

@@ -22,9 +22,11 @@ def prove(prover: qcel_howmany.IdentityProver, gate_set: str, ngates: int, nqubi
     start = time.time_ns()
     rules = []
     print(f"Proving identities... (gate set '{gate_set}' with {ngates} gates.)")
-    for idcirc, _, _ in tqdm(eccs.to_identity_circuits()):
+    idcircs = eccs.to_identity_circuits()
+    # print(idcircs)
+    for idcirc, _, _ in tqdm(idcircs):
         if idcirc := prover.prove_identity(idcirc, 2, 50000):
-            print(idcirc)
+            # print(idcirc)
             rules.append(idcirc)
     
     result = {

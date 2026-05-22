@@ -30,6 +30,7 @@ COPY pyproject.toml ${APP_HOME}/
 COPY uv.lock ${APP_HOME}/
 
 # Build wheel from the Rust/Python project.
+RUN touch README.md
 RUN maturin build --release --interpreter python3 --out /tmp/wheels \
     && rm -rf /root/.cache/pip /root/.cargo/registry /root/.cargo/git
 
