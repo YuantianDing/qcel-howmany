@@ -6,7 +6,7 @@ fn main() {
     let nqubits = 5;
     let ngates = 7;
     let use_eqclass = true;
-    let evaluator = Evaluator::from_random(nqubits, &mut rand::rngs::StdRng::from_seed([2; 32]));
+    let evaluator = Evaluator::from_random(nqubits, &mut rand::rngs::StdRng::from_seed([1; 32]));
     let (eccs, _) = if use_eqclass {
         RawECCs::generate(&evaluator, vec![*H, *X, *TDG, *T, *CX], ngates)  // *CY, *CZ, *Y, *Z, *SDG, *S
     } else {

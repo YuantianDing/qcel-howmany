@@ -7,7 +7,7 @@ The paper PDF is included in this repo: [`cav26.pdf`](./cav26.pdf).
 
 Links: [Rust API](https://yuantianding.github.io/qcel-howmany/) [Python API](https://github.com/YuantianDing/qcel-howmany/blob/main/PYTHON-API.md) [PyPI](https://pypi.org/project/qcel-howmany/)
 
-Artifact DOI: <https://doi.org/10.5281/zenodo.1983638>. This is the
+Artifact DOI: <https://doi.org/10.5281/zenodo.19836377>. This is the
 version-specific Zenodo DOI for the submitted artifact package evaluated with
 this paper.
 
@@ -166,8 +166,8 @@ Experiments configurations are shown in [`scripts/run_all.py`](./scripts/run_all
 NGATES = {
     # number of gates to (build prover, prove, run naive method)
     "logical": (9, 9, 9),
-    "clifford": (6, 8, 6),
-    "clifford-t": (6, 8, 6),
+    "clifford": (6, 7, 6),
+    "clifford-t": (6, 7, 6),
     # "common-clifford-t": (5, 5, 4),
     # "clifford-t1/2": (6, 7, 5),
     # "clifford-rz(pi/3)": (6, 7, 5),
@@ -176,7 +176,7 @@ NGATES = {
 
 The first number is the highest number of gates for which we build a "prover", i.e. `rules` table defined in Algorithm 3 of the paper, which consumes a lot of memory and time for larger gate sets, and run full version of Algorithm 3 of the paper. The second number is the highest number of gates for which we run the full synthesis, but use the previous prover to prove that no additional rules are needed. The third number is the highest number of gates for which we run the naive method, which is much slower and memory intensive than the optimized method, so we only run it for smaller gate counts.
 
-In this artifact, by default, we only run 3 gate sets (`logical`, `clifford`, and `clifford-t`) for simplicity and to reduce the total runtime. The other three gate sets (`common-clifford-t`, `clifford-t1/2`, and `clifford-rz(pi/3)`) are commented out in the above dictionaries; you can uncomment them to run them as well.
+In this artifact, by default, we only run 3 gate sets (`logical`, `clifford`, and `clifford-t`) for `k ≤ 7` to reduce the total runtime. The other three gate sets (`common-clifford-t`, `clifford-t1/2`, and `clifford-rz(pi/3)`) are commented out in the above dictionaries; you can uncomment them to run them as well. Note that running one of `clifford` and `clifford-t` for `k=8` takes 90+ hours on our experimental environment.
 
 ### 5.1 — Synthesis and Pruning
 
@@ -266,37 +266,12 @@ Therefore, calling `docker run` with no extra command starts the Quartz synthesi
 process immediately. The generated files are written inside the container under
 `/quartz/eccset`.
 
-Use the following commands to run the generator and then copy the generated ECC
-sets back to the host:
+Use the following commands to run the generator which produces files in `./quartz-eccset`:
 
 ```bash
-docker pull yuantianding/quartz-gen-ecc
-docker run --name quartz-gen-ecc yuantianding/quartz-gen-ecc
-docker cp quartz-gen-ecc:/quartz/eccset ./quartz-eccset
-docker rm quartz-gen-ecc
+docker pull yuantianding/quartz-gen-ecc  # Or load the local tar file.
+docker run -it --rm -v $(pwd)/quartz-eccset:/quartz/eccset yuantianding/quartz-gen-ecc
 ```
-
-If you want to keep the terminal free while generation runs, start the container
-in the background and follow its logs:
-
-```bash
-docker run -d --name quartz-gen-ecc yuantianding/quartz-gen-ecc
-docker logs -f quartz-gen-ecc
-docker wait quartz-gen-ecc
-docker cp quartz-gen-ecc:/quartz/eccset ./quartz-eccset
-docker rm quartz-gen-ecc
-```
-
-To inspect the image without starting synthesis, override the entrypoint. For
-example:
-
-```bash
-docker run --rm --entrypoint ls yuantianding/quartz-gen-ecc -la /quartz/eccset
-docker run --rm --entrypoint pwd yuantianding/quartz-gen-ecc
-```
-
-On non-x86 machines, you may need to add `--platform linux/amd64` to the
-`docker run` commands.
 
 ### 5.2.3 — Impact of Floating-Point Precision
 
